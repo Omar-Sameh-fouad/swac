@@ -27,11 +27,8 @@ function CoachScheduleTable({ days, hours }: { days: string[]; hours: string[]; 
   );
 }
 
-// التعديل الأول: استقبال الداتا كـ Prop عشان الجدول يعرضها
 function ClassesScheduleTable({ data = [] }: { data?: any[] }) {
-  // لو فيه داتا نعرضها، لو مفيش نعرض 6 صفوف فاضية زي الأول بالظبط
   const displayRows = data.length > 0 ? data : Array.from({ length: 6 }).map(() => ({}));
-  
   return (
     <div className="overflow-x-auto">
       <table className="h-[355px] w-full min-w-[680px] table-fixed border-collapse text-center">
@@ -48,7 +45,6 @@ function ClassesScheduleTable({ data = [] }: { data?: any[] }) {
               <td className="border border-black/70 text-sm font-bold">{row.day || ""}</td>
               <td className="border border-black/70 text-sm font-bold">{row.time || ""}</td>
               <td className="border border-black/70 text-sm font-bold">{row.gender || ""}</td>
-              {/* بنجرب نجيب الاسم من names أو swimmer_name حسب اللي راجع من السيرفر */}
               <td className="border border-black/70 text-sm font-bold">{row.names || row.swimmer_name || ""}</td>
               <td className="border border-black/70 text-sm font-bold">{row.age || ""}</td>
               <td className="border border-black/70 text-sm font-bold">{row.level || ""}</td>
@@ -63,55 +59,80 @@ function ClassesScheduleTable({ data = [] }: { data?: any[] }) {
 export function CoachHomeScreen() {
   const router = useRouter();
   const { coachDraft } = useSignupDraft();
-  const coachName = [coachDraft.firstName, coachDraft.lastName].filter(Boolean).join(" ") || "The Name";
 
-  // التعديل الثاني: إضافة state لجلب وتخزين البيانات
+  // عملنا States منفصلة عشان تحفظ الداتا من الـ API وتقاوم الريفريش
+  const [coachName, setCoachName] = useState([coachDraft.firstName, coachDraft.lastName].filter(Boolean).join(" ") || "The Name");
+  const [teamDays, setTeamDays] = useState<string[]>(coachDraft.workingDays || []);
+  const [teamHours, setTeamHours] = useState<string[]>(coachDraft.workingHours || []);
   const [classesData, setClassesData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchClassesSchedule() {
+    async function fetchDashboardData() {
       try {
         const token = localStorage.getItem("authToken");
-        const coachId = coachDraft?.id; 
-
-        if (!coachId) {
+        if (!token) {
           setIsLoading(false);
           return;
         }
 
-        // الكول الخاص ببوست مان (تأكد من تعديل الرابط لو كان مختلف عندك)
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api-academy-production-c1ab.up.railway.app/api"}/coach/classes/${coachId}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
+        let currentCoachId = coachDraft?.id;
+
+        // 1. الكول الأول: جلب بروفايل المدرب (عشان نجيب أيام العمل والساعات والاسم بعد الريفريش)
+        try {
+          const profileRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api-academy-production-c1ab.up.railway.app/api"}/auth/profile`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            }
+          });
+          
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            const user = profileData.user || profileData.coach || profileData.data || profileData;
+            
+            if (user) {
+              currentCoachId = user.id || user.user_id || currentCoachId;
+              if (user.first_name || user.last_name) {
+                setCoachName(`${user.first_name || ""} ${user.last_name || ""}`.trim());
+              }
+              // تحديث جدول المدرب الخاص به من الداتابيز
+              if (user.working_days) setTeamDays(user.working_days);
+              if (user.working_hours) setTeamHours(user.working_hours);
+            }
           }
-        });
-        
-        const data = await response.json();
-        
-        // التعامل مع أشكال الاستجابة المختلفة من الـ API
-        if (Array.isArray(data)) {
-          setClassesData(data);
-        } else if (data.classes && Array.isArray(data.classes)) {
-          setClassesData(data.classes);
-        } else if (data.data && Array.isArray(data.data)) {
-          setClassesData(data.data);
+        } catch (err) {
+          console.error("Failed to fetch profile:", err);
         }
+
+        // 2. الكول التاني: جلب حصص المدرب (الكلاسات)
+        if (currentCoachId) {
+          const classesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api-academy-production-c1ab.up.railway.app/api"}/coach/classes/${currentCoachId}`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            }
+          });
+          
+          if (classesRes.ok) {
+            const classesJson = await classesRes.json();
+            if (Array.isArray(classesJson)) setClassesData(classesJson);
+            else if (classesJson.classes) setClassesData(classesJson.classes);
+            else if (classesJson.data) setClassesData(classesJson.data);
+          }
+        }
+        
       } catch (error) {
-        console.error("Failed to fetch classes schedule:", error);
+        console.error("Failed to fetch dashboard data:", error);
       } finally {
         setIsLoading(false);
       }
     }
 
-    if (localStorage.getItem("authToken")) {
-      fetchClassesSchedule();
-    } else {
-      setIsLoading(false);
-    }
-  }, [coachDraft.id]);
+    fetchDashboardData();
+  }, [coachDraft?.id]);
 
   return (
     <main className="min-h-screen bg-[#fffef8] text-black">
@@ -123,11 +144,15 @@ export function CoachHomeScreen() {
           <div className="relative mt-8 h-[min(62vw,640px)] min-h-[320px] w-full max-lg:h-[52vw] max-md:h-[64vw] max-md:min-h-[260px]"><Image src="/images/swim-master-logo-clean.png" alt="Swim Master logo" fill priority sizes="(max-width: 768px) 92vw, (max-width: 1024px) 80vw, 48vw" className="object-contain object-center" /></div>
         </div>
         <div className="flex min-h-[calc(100vh-120px)] flex-col justify-center gap-[clamp(32px,5vh,46px)] pt-20 max-lg:min-h-0 max-lg:pt-0">
-          <section><h2 className="mb-7 text-[clamp(22px,1.7vw,26px)] font-black leading-tight">Your team&apos;s schedule is ...</h2><CoachScheduleTable days={coachDraft.workingDays} hours={coachDraft.workingHours} /></section>
           
           <section>
+            <h2 className="mb-7 text-[clamp(22px,1.7vw,26px)] font-black leading-tight">Your team&apos;s schedule is ...</h2>
+            {/* الجدول الأول يقرأ من الـ State الجديدة اللي بتيجي من الـ API */}
+            <CoachScheduleTable days={teamDays} hours={teamHours} />
+          </section>
+
+          <section>
             <h2 className="mb-5 text-[clamp(22px,1.7vw,26px)] font-black leading-tight">Your classes schedule is ...</h2>
-            {/* التعديل الثالث: إظهار التحميل أو الجدول بالداتا */}
             {isLoading ? (
                <div className="flex h-[355px] items-center justify-center border border-black/70 bg-white/50"><p className="text-lg font-bold text-black/50">Loading schedule...</p></div>
             ) : (
