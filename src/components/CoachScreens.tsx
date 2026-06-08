@@ -2,7 +2,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { useSignupDraft } from "@/core/SignupContext";
@@ -27,9 +27,36 @@ function CoachScheduleTable({ days, hours }: { days: string[]; hours: string[]; 
   );
 }
 
-function ClassesScheduleTable() {
+// التعديل الأول: استقبال الداتا كـ Prop عشان الجدول يعرضها
+function ClassesScheduleTable({ data = [] }: { data?: any[] }) {
+  // لو فيه داتا نعرضها، لو مفيش نعرض 6 صفوف فاضية زي الأول بالظبط
+  const displayRows = data.length > 0 ? data : Array.from({ length: 6 }).map(() => ({}));
+  
   return (
-    <div className="overflow-x-auto"><table className="h-[355px] w-full min-w-[680px] table-fixed border-collapse text-center"><thead><tr>{["Day", "Time", "Gender", "names", "Age", "Level"].map((heading) => (<th key={heading} className="h-10 border border-black/70 text-[16px] font-black">{heading}</th>))}</tr></thead><tbody>{Array.from({ length: 6 }).map((_, index) => (<tr key={index}><td className="border border-black/70" /><td className="border border-black/70" /><td className="border border-black/70" /><td className="border border-black/70" /><td className="border border-black/70" /><td className="border border-black/70" /></tr>))}</tbody></table></div>
+    <div className="overflow-x-auto">
+      <table className="h-[355px] w-full min-w-[680px] table-fixed border-collapse text-center">
+        <thead>
+          <tr>
+            {["Day", "Time", "Gender", "names", "Age", "Level"].map((heading) => (
+              <th key={heading} className="h-10 border border-black/70 text-[16px] font-black">{heading}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {displayRows.map((row: any, index) => (
+            <tr key={index}>
+              <td className="border border-black/70 text-sm font-bold">{row.day || ""}</td>
+              <td className="border border-black/70 text-sm font-bold">{row.time || ""}</td>
+              <td className="border border-black/70 text-sm font-bold">{row.gender || ""}</td>
+              {/* بنجرب نجيب الاسم من names أو swimmer_name حسب اللي راجع من السيرفر */}
+              <td className="border border-black/70 text-sm font-bold">{row.names || row.swimmer_name || ""}</td>
+              <td className="border border-black/70 text-sm font-bold">{row.age || ""}</td>
+              <td className="border border-black/70 text-sm font-bold">{row.level || ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -37,6 +64,54 @@ export function CoachHomeScreen() {
   const router = useRouter();
   const { coachDraft } = useSignupDraft();
   const coachName = [coachDraft.firstName, coachDraft.lastName].filter(Boolean).join(" ") || "The Name";
+
+  // التعديل الثاني: إضافة state لجلب وتخزين البيانات
+  const [classesData, setClassesData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchClassesSchedule() {
+      try {
+        const token = localStorage.getItem("authToken");
+        const coachId = coachDraft?.id; 
+
+        if (!coachId) {
+          setIsLoading(false);
+          return;
+        }
+
+        // الكول الخاص ببوست مان (تأكد من تعديل الرابط لو كان مختلف عندك)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api-academy-production-c1ab.up.railway.app/api"}/coach/classes/${coachId}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        // التعامل مع أشكال الاستجابة المختلفة من الـ API
+        if (Array.isArray(data)) {
+          setClassesData(data);
+        } else if (data.classes && Array.isArray(data.classes)) {
+          setClassesData(data.classes);
+        } else if (data.data && Array.isArray(data.data)) {
+          setClassesData(data.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch classes schedule:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    if (localStorage.getItem("authToken")) {
+      fetchClassesSchedule();
+    } else {
+      setIsLoading(false);
+    }
+  }, [coachDraft.id]);
 
   return (
     <main className="min-h-screen bg-[#fffef8] text-black">
@@ -49,7 +124,17 @@ export function CoachHomeScreen() {
         </div>
         <div className="flex min-h-[calc(100vh-120px)] flex-col justify-center gap-[clamp(32px,5vh,46px)] pt-20 max-lg:min-h-0 max-lg:pt-0">
           <section><h2 className="mb-7 text-[clamp(22px,1.7vw,26px)] font-black leading-tight">Your team&apos;s schedule is ...</h2><CoachScheduleTable days={coachDraft.workingDays} hours={coachDraft.workingHours} /></section>
-          <section><h2 className="mb-5 text-[clamp(22px,1.7vw,26px)] font-black leading-tight">Your classes schedule is ...</h2><ClassesScheduleTable /></section>
+          
+          <section>
+            <h2 className="mb-5 text-[clamp(22px,1.7vw,26px)] font-black leading-tight">Your classes schedule is ...</h2>
+            {/* التعديل الثالث: إظهار التحميل أو الجدول بالداتا */}
+            {isLoading ? (
+               <div className="flex h-[355px] items-center justify-center border border-black/70 bg-white/50"><p className="text-lg font-bold text-black/50">Loading schedule...</p></div>
+            ) : (
+               <ClassesScheduleTable data={classesData} />
+            )}
+          </section>
+
           <button type="button" onClick={() => router.push("/coach/schedule")} className="mx-auto flex min-h-[44px] w-[182px] items-center justify-center rounded-full bg-[#108bad] text-sm font-black text-white shadow-[0_10px_18px_-14px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a]">Edit</button>
         </div>
       </section>
@@ -175,7 +260,7 @@ export function CoachSignupForm({ onComplete }: { onComplete?: () => void }) {
   const { coachDraft, setRole, updateCoachDraft } = useSignupDraft();
   const [apiError, setApiError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter(); // تم إضافة التوجيه هنا
+  const router = useRouter(); 
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<Pick<CoachSignupDraft, "firstName" | "lastName" | "gender" | "phone" | "email" | "password" | "confirmPassword">>({
     defaultValues: { firstName: coachDraft.firstName, lastName: coachDraft.lastName, gender: coachDraft.gender, phone: coachDraft.phone, email: coachDraft.email, password: coachDraft.password, confirmPassword: coachDraft.confirmPassword },
@@ -196,7 +281,7 @@ export function CoachSignupForm({ onComplete }: { onComplete?: () => void }) {
       if (coachId) updateCoachDraft({ id: coachId });
       
       if (onComplete) onComplete();
-      router.push("/login"); // التوجيه التلقائي لصفحة اللوجين
+      router.push("/login"); 
     } catch (error: any) {
       setApiError(error.message || "Registration failed. Please try again.");
     } finally {
