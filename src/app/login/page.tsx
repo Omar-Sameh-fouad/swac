@@ -2,16 +2,23 @@
 
 import { useRouter } from "next/navigation";
 import { LoginScreen } from "@/components/AuthScreens";
-import { useSignupDraft } from "@/core/SignupContext";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { role } = useSignupDraft();
 
-  function handleSignIn() {
-    if (role === "coach") return router.push("/coach/home");
-    if (role === "swimmer") return router.push("/swimmer/home");
-    if (role === "manager") return router.push("/manager/home");
+  // نستقبل نوع الحساب اللي طالع من الـ API بعد نجاح اللوجين
+  function handleSignIn(userRole: string) {
+    if (userRole === "coach") {
+      return router.push("/coach/home");
+    }
+    if (userRole === "swimmer") {
+      return router.push("/swimmer/home");
+    }
+    if (userRole === "manager") {
+      return router.push("/manager/home");
+    }
+    
+    // كإجراء احتياطي لو مفيش دور راجع أو حصلت مشكلة
     router.push("/roles");
   }
 

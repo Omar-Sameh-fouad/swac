@@ -49,8 +49,7 @@ export function LandingScreen() {
           <Link href="/" className="flex w-[82px] flex-col items-center gap-0.5 text-[11px] font-black leading-none sm:w-[104px] sm:text-[12px]"><span>Swim Master</span><Image src="/images/swim-master-logo-clean.png" alt="Swim Master" width={34} height={34} className="h-7 w-7 rounded-full object-contain sm:h-8 sm:w-8" /></Link>
           <div className="flex min-w-0 items-center gap-3 text-[11px] font-black sm:gap-12 sm:text-[12px]">
             <Link className="shrink-0 transition hover:text-[#126f87]" href="/">Home</Link>
-            {/* تم تعديل المسار هنا ليوجه إلى صفحة تسجيل الدخول بدلاً من الأدوار مباشرة */}
-            <Link className="shrink-0 transition hover:text-[#126f87]" href="/login">Registration</Link>
+            <Link className="shrink-0 transition hover:text-[#126f87]" href="/roles">Registration</Link>
             <a className="shrink-0 transition hover:text-[#126f87]" href="#about">About Us</a>
           </div>
         </nav>
