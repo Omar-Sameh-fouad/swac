@@ -141,10 +141,11 @@ export function SwimmerSignupHeader() {
   );
 }
 
-export function SwimmerSignupForm({ onComplete }: { onComplete: () => void }) {
+export function SwimmerSignupForm({ onComplete }: { onComplete?: () => void }) {
   const { setRole, swimmerDraft, updateSwimmerDraft } = useSignupDraft();
   const [apiError, setApiError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter(); // تم إضافة التوجيه هنا
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<Pick<SwimmerSignupDraft, "firstName" | "lastName" | "gender" | "age" | "phone" | "level" | "email" | "password" | "confirmPassword">>({
     defaultValues: { firstName: swimmerDraft.firstName, lastName: swimmerDraft.lastName, gender: swimmerDraft.gender, age: swimmerDraft.age, phone: swimmerDraft.phone, level: swimmerDraft.level, email: swimmerDraft.email, password: swimmerDraft.password, confirmPassword: swimmerDraft.confirmPassword },
@@ -163,7 +164,9 @@ export function SwimmerSignupForm({ onComplete }: { onComplete: () => void }) {
       const response = await submitSwimmerSignupDraft({ ...swimmerDraft, ...values });
       const swimmerId = response?.user?.id || response?.id;
       if (swimmerId) updateSwimmerDraft({ id: swimmerId });
-      onComplete();
+      
+      if (onComplete) onComplete();
+      router.push("/login"); // التوجيه التلقائي لصفحة اللوجين
     } catch (error: any) {
       setApiError(error.message || "Registration failed. Please try again.");
     } finally {
@@ -193,7 +196,7 @@ export function SwimmerSignupForm({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-export function SwimmerSignupScreen({ onBack, onComplete }: { onBack: () => void; onComplete: () => void; }) {
+export function SwimmerSignupScreen({ onBack, onComplete }: { onBack: () => void; onComplete?: () => void; }) {
   return (
     <ScreenShell>
       <BackButton onClick={onBack} />

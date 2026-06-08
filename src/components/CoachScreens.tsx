@@ -171,10 +171,11 @@ export function CoachSignupHeader() {
   );
 }
 
-export function CoachSignupForm({ onComplete }: { onComplete: () => void }) {
+export function CoachSignupForm({ onComplete }: { onComplete?: () => void }) {
   const { coachDraft, setRole, updateCoachDraft } = useSignupDraft();
   const [apiError, setApiError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter(); // تم إضافة التوجيه هنا
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<Pick<CoachSignupDraft, "firstName" | "lastName" | "gender" | "phone" | "email" | "password" | "confirmPassword">>({
     defaultValues: { firstName: coachDraft.firstName, lastName: coachDraft.lastName, gender: coachDraft.gender, phone: coachDraft.phone, email: coachDraft.email, password: coachDraft.password, confirmPassword: coachDraft.confirmPassword },
@@ -193,7 +194,9 @@ export function CoachSignupForm({ onComplete }: { onComplete: () => void }) {
       const response = await submitCoachSignupDraft({ ...coachDraft, ...values });
       const coachId = response?.user?.id || response?.id;
       if (coachId) updateCoachDraft({ id: coachId });
-      onComplete();
+      
+      if (onComplete) onComplete();
+      router.push("/login"); // التوجيه التلقائي لصفحة اللوجين
     } catch (error: any) {
       setApiError(error.message || "Registration failed. Please try again.");
     } finally {
@@ -221,7 +224,7 @@ export function CoachSignupForm({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-export function CoachSignupScreen({ onBack, onComplete }: { onBack: () => void; onComplete: () => void; }) {
+export function CoachSignupScreen({ onBack, onComplete }: { onBack: () => void; onComplete?: () => void; }) {
   return (
     <ScreenShell>
       <BackButton onClick={onBack} />
