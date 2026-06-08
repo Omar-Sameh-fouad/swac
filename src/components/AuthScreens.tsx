@@ -111,16 +111,21 @@ export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => 
         localStorage.setItem("authToken", response.token || response.access_token);
       }
 
-      // استخراج بيانات المستخدم وتحديد الدور
-      const user = response.user || response;
-      const role: string = user.role || "swimmer";
+      // استخراج بيانات المستخدم — الـ API ممكن ترجع أشكال مختلفة
+      const user = response.user || response.coach || response.swimmer || response.data || response;
+      const userId = user.id || user.user_id || response.id || response.user_id;
+      const role: string = user.role || response.role || "swimmer";
+
+      // للـ debugging — هنشيله بعد ما نتأكد
+      console.log("[Login Response]", JSON.stringify(response, null, 2));
+      console.log("[Extracted user]", user, "| id:", userId, "| role:", role);
 
       setRole(role as "swimmer" | "coach" | "manager");
 
       // تعبئة الـ context ببيانات المستخدم الحقيقية
       if (role === "swimmer") {
         updateSwimmerDraft({
-          id: user.id,
+          id: userId,
           firstName: user.first_name || "",
           lastName: user.last_name || "",
           gender: user.gender || "",
@@ -131,7 +136,7 @@ export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => 
         });
       } else if (role === "coach") {
         updateCoachDraft({
-          id: user.id,
+          id: userId,
           firstName: user.first_name || "",
           lastName: user.last_name || "",
           gender: user.gender || "",

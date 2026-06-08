@@ -143,6 +143,13 @@ export function AttendanceScreen() {
     try {
       const idField = role === "coach" ? "logged_coach_id" : "logged_swimmer_id";
       const userId = role === "coach" ? coachDraft?.id : swimmerDraft?.id;
+
+      if (!userId) {
+        setErrorMsg("User ID not found. Please log out and log in again.");
+        setIsLogging(false);
+        return;
+      }
+
       const payload = {
         role: role || "swimmer",
         status: "present",
