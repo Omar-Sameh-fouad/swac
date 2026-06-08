@@ -47,7 +47,12 @@ export function LandingScreen() {
       <header className="sticky top-0 z-30 bg-[#98d3dd]">
         <nav className="mx-auto flex h-16 w-full max-w-[1080px] items-center justify-start gap-4 px-5 sm:justify-between sm:gap-0 sm:px-8">
           <Link href="/" className="flex w-[82px] flex-col items-center gap-0.5 text-[11px] font-black leading-none sm:w-[104px] sm:text-[12px]"><span>Swim Master</span><Image src="/images/swim-master-logo-clean.png" alt="Swim Master" width={34} height={34} className="h-7 w-7 rounded-full object-contain sm:h-8 sm:w-8" /></Link>
-          <div className="flex min-w-0 items-center gap-3 text-[11px] font-black sm:gap-12 sm:text-[12px]"><Link className="shrink-0 transition hover:text-[#126f87]" href="/">Home</Link><Link className="shrink-0 transition hover:text-[#126f87]" href="/roles">Registration</Link><a className="shrink-0 transition hover:text-[#126f87]" href="#about">About Us</a></div>
+          <div className="flex min-w-0 items-center gap-3 text-[11px] font-black sm:gap-12 sm:text-[12px]">
+            <Link className="shrink-0 transition hover:text-[#126f87]" href="/">Home</Link>
+            {/* تم تعديل المسار هنا ليوجه إلى صفحة تسجيل الدخول بدلاً من الأدوار مباشرة */}
+            <Link className="shrink-0 transition hover:text-[#126f87]" href="/login">Registration</Link>
+            <a className="shrink-0 transition hover:text-[#126f87]" href="#about">About Us</a>
+          </div>
         </nav>
       </header>
       <section className="mx-auto min-h-[calc(100vh-64px)] w-full max-w-[1080px] px-7 pb-14 pt-9 sm:px-10">
