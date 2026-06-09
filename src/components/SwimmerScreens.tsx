@@ -8,7 +8,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { useSignupDraft } from "@/core/SignupContext";
 import { scheduleDays, scheduleHours, type SwimmerSignupDraft } from "@/core/types";
 import { BackButton, ScreenShell, FormField, GenderSelector, SignupSubmitButton } from "./SharedUI";
-import { submitSwimmerSignupDraft, ScheduleAPI } from "@/core/api";
+import { submitSwimmerSignupDraft, ScheduleAPI, getSessionUser } from "@/core/api";
 
 function SmallProfileIcon() {
   return (
@@ -23,7 +23,13 @@ export function SwimmerHomeScreen() {
   const router = useRouter();
   const { swimmerDraft } = useSignupDraft();
   
-  const swimmerName = [swimmerDraft.firstName, swimmerDraft.lastName].filter(Boolean).join(" ");
+  // ✅ حل اختفاء البيانات: القراءة المباشرة من المتغيرات
+  const sessionUser = typeof window !== "undefined" ? getSessionUser() : null;
+  const fName = swimmerDraft.firstName || sessionUser?.first_name || "";
+  const lName = swimmerDraft.lastName || sessionUser?.last_name || "";
+  const swimmerName = [fName, lName].filter(Boolean).join(" ");
+  const ageDisplay = swimmerDraft.age || sessionUser?.age || "-";
+  const levelDisplay = swimmerDraft.level || sessionUser?.level || "-";
   
   const [scheduleList, setScheduleList] = useState<any[]>([]);
   const [assignedCoach, setAssignedCoach] = useState<string>("Not assigned yet");
@@ -72,7 +78,7 @@ export function SwimmerHomeScreen() {
           </section>
           <aside className="grid gap-5">
             <div className="rounded-[8px] border border-[#108bad]/20 bg-white/75 p-6 shadow-[0_18px_40px_-34px_rgba(0,0,0,0.7)]"><h2 className="text-lg font-black text-[#108bad]">Your coach is ...</h2><p className="mt-4 text-sm font-bold text-black/55">{assignedCoach}</p></div>
-            <div className="rounded-[8px] border border-[#108bad]/20 bg-white/75 p-6 shadow-[0_18px_40px_-34px_rgba(0,0,0,0.7)]"><h2 className="text-lg font-black text-[#108bad]">Your details</h2><p className="mt-4 text-sm font-bold text-black/55">Age: {swimmerDraft.age || "-"}</p><p className="mt-2 text-sm font-bold text-black/55">Level: {swimmerDraft.level || "-"}</p></div>
+            <div className="rounded-[8px] border border-[#108bad]/20 bg-white/75 p-6 shadow-[0_18px_40px_-34px_rgba(0,0,0,0.7)]"><h2 className="text-lg font-black text-[#108bad]">Your details</h2><p className="mt-4 text-sm font-bold text-black/55">Age: {ageDisplay}</p><p className="mt-2 text-sm font-bold text-black/55">Level: {levelDisplay}</p></div>
           </aside>
         </div>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
@@ -84,7 +90,6 @@ export function SwimmerHomeScreen() {
   );
 }
 
-// ... باقي أجزاء الملف (SwimmerScheduleScreen, SwimmerHoursScreen, SwimmerSignupForm) تبقى كما هي بدون تغيير.
 const maxSelectedDays = 2;
 
 export function SwimmerScheduleScreen({ onBack, onNext }: { onBack: () => void; onNext: () => void; }) {

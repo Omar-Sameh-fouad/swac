@@ -8,7 +8,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { useSignupDraft } from "@/core/SignupContext";
 import { scheduleDays, scheduleHours, type CoachSignupDraft } from "@/core/types";
 import { BackButton, ScreenShell, FormField, GenderSelector, SignupSubmitButton } from "./SharedUI";
-import { submitCoachSignupDraft, CoachAPI, ScheduleAPI, clearSession } from "@/core/api";
+import { submitCoachSignupDraft, CoachAPI, ScheduleAPI, clearSession, getSessionUser } from "@/core/api";
 
 function MenuIcon() { return <svg viewBox="0 0 24 24" className="h-[54%] w-[54%]" aria-hidden><path d="M5.5 7.5h13M5.5 12h13M5.5 16.5h13" stroke="currentColor" strokeLinecap="round" strokeWidth="2" /></svg>; }
 function ProfileIcon() { return <svg viewBox="0 0 24 24" className="h-[68%] w-[68%]" aria-hidden><circle cx="12" cy="8" r="3.1" fill="white" /><path d="M5.8 19.2c.7-3.6 3-5.4 6.2-5.4s5.5 1.8 6.2 5.4" fill="white" /></svg>; }
@@ -57,7 +57,12 @@ export function CoachHomeScreen() {
   const router = useRouter();
   const { coachDraft } = useSignupDraft();
 
-  const [coachName, setCoachName] = useState([coachDraft.firstName, coachDraft.lastName].filter(Boolean).join(" ") || "Coach");
+  // ✅ حل اختفاء الاسم: الاعتماد على الثوابت والداتا الحية بدلاً من useState
+  const sessionUser = typeof window !== "undefined" ? getSessionUser() : null;
+  const fName = coachDraft.firstName || sessionUser?.first_name || "";
+  const lName = coachDraft.lastName || sessionUser?.last_name || "";
+  const coachName = [fName, lName].filter(Boolean).join(" ") || "Coach";
+
   const [teamDays, setTeamDays] = useState<string[]>([]);
   const [teamHours, setTeamHours] = useState<string[]>([]);
   const [classesData, setClassesData] = useState<any[]>([]);
@@ -159,7 +164,7 @@ export function CoachScheduleScreen({ onBack, onDone }: { onBack?: () => void; o
   const { register, handleSubmit, formState: { errors } } = useForm({ defaultValues: { workingDays: coachDraft.workingDays } });
 
   function handleBack() { if (onBack) onBack(); else router.back(); }
-  function handleDone() { if (onDone) onDone(); else router.push("/coach/home"); }
+  function handleDone() { if (onDone) onDone(); else router.push("/coach/hours"); }
 
   return (
     <main className="min-h-screen bg-[#dbe9ef] text-black">
@@ -191,9 +196,31 @@ export function CoachHoursScreen({ onBack, onDone }: { onBack?: () => void; onDo
   const router = useRouter();
   const { coachDraft, setRole, updateCoachDraft } = useSignupDraft();
   const { register, handleSubmit, formState: { errors } } = useForm({ defaultValues: { workingHours: coachDraft.workingHours } });
+  const [isSaving, setIsSaving] = useState(false);
 
   function handleBack() { if (onBack) onBack(); else router.back(); }
   function handleDone() { if (onDone) onDone(); else router.push("/coach/home"); }
+
+  // ✅ حل مشكلة المواعيد التي لا تظهر: يتم الآن إرسالها للباك إند فعلياً
+  async function onSubmit(values: any) {
+    setIsSaving(true);
+    try {
+      setRole("coach");
+      updateCoachDraft({ workingHours: values.workingHours });
+      
+      await CoachAPI.setup({
+        days: coachDraft.workingDays,
+        times: values.workingHours,
+      });
+
+      handleDone();
+    } catch (err) {
+      console.error("Failed to save schedule:", err);
+      alert("Failed to save schedule to server. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#dbe9ef] text-black">
@@ -202,7 +229,7 @@ export function CoachHoursScreen({ onBack, onDone }: { onBack?: () => void; onDo
         <div className="relative min-h-screen overflow-hidden bg-[#cfe5ed] max-md:min-h-[38vh]">
           <Image src="/images/coach-schedule-hero.png" alt="Swimming coaches beside a pool" fill priority sizes="(max-width: 768px) 100vw, 53vw" className="object-contain object-center opacity-65" />
         </div>
-        <form onSubmit={handleSubmit((values) => { setRole("coach"); updateCoachDraft({ workingHours: values.workingHours }); handleDone(); })} className="flex min-h-screen flex-col px-[clamp(48px,6.9vw,92px)] pt-[17.5vh] max-md:min-h-0 max-md:px-[10vw] max-md:py-[6vh]">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-screen flex-col px-[clamp(48px,6.9vw,92px)] pt-[17.5vh] max-md:min-h-0 max-md:px-[10vw] max-md:py-[6vh]">
           <h1 className="text-[clamp(20px,2.1vw,30px)] font-black leading-none">Welcome Coach</h1>
           <p className="mt-[1.5vh] max-w-[220px] text-[clamp(12px,0.82vw,13px)] font-bold leading-[1.25] text-[#108bad]">Please choose your working hours of classes</p>
           <fieldset className="mt-[7.3vh] grid w-full max-w-[300px] grid-cols-2 gap-x-[clamp(36px,7vw,96px)] gap-y-4 max-md:mt-[4vh]">
@@ -214,7 +241,9 @@ export function CoachHoursScreen({ onBack, onDone }: { onBack?: () => void; onDo
             ))}
           </fieldset>
           {errors.workingHours && <p className="mt-3 max-w-[300px] text-[clamp(10px,1.25vh,12px)] font-bold leading-snug text-[#c0392b]">{errors.workingHours.message}</p>}
-          <button type="submit" className="ml-[clamp(48px,7vw,96px)] mt-[7.5vh] min-h-[44px] w-[clamp(112px,11vw,132px)] rounded-full bg-[#108bad] text-[clamp(12px,0.85vw,13px)] font-black text-white shadow-[0_8px_16px_-12px_rgba(0,0,0,0.85)] transition hover:bg-[#0d7c9a] max-md:ml-0 max-md:mt-[5vh]">Done</button>
+          <button type="submit" disabled={isSaving} className="ml-[clamp(48px,7vw,96px)] mt-[7.5vh] min-h-[44px] w-[clamp(112px,11vw,132px)] rounded-full bg-[#108bad] text-[clamp(12px,0.85vw,13px)] font-black text-white shadow-[0_8px_16px_-12px_rgba(0,0,0,0.85)] transition hover:bg-[#0d7c9a] max-md:ml-0 max-md:mt-[5vh] disabled:opacity-60">
+            {isSaving ? "Saving..." : "Done"}
+          </button>
         </form>
       </section>
     </main>
