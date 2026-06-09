@@ -11,7 +11,7 @@ import type { CoachSignupDraft } from "@/core/types";
 import { BackButton, ScreenShell, EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from "./SharedUI";
 import { loginUser, clearSession, getSessionUser } from "@/core/api";
 
-export function LoginTextField({ label, name, type = "text", autoComplete, required = false, registration }: { label: string; name: string; type?: string; autoComplete?: string; required?: boolean; registration?: UseFormRegisterReturn; }) {
+export function LoginTextField({ label, name, type = "text", autoComplete, required = false, registration }: { label: string; name: string; type?: string; autoComplete?: string; required?: boolean; registration?: UseFormRegisterReturn }) {
   return (
     <label className="mb-[2.12vh] block max-md:mb-[1.4vh]">
       <span className="mb-[1.06vh] block text-[clamp(7px,1.38vh,14px)] font-bold lowercase leading-none">{label}</span>
@@ -20,7 +20,7 @@ export function LoginTextField({ label, name, type = "text", autoComplete, requi
   );
 }
 
-export function LoginPasswordField({ isVisible, onToggleVisibility, required = false, registration }: { isVisible: boolean; onToggleVisibility: () => void; required?: boolean; registration?: UseFormRegisterReturn; }) {
+export function LoginPasswordField({ isVisible, onToggleVisibility, required = false, registration }: { isVisible: boolean; onToggleVisibility: () => void; required?: boolean; registration?: UseFormRegisterReturn }) {
   return (
     <label className="mb-[1.06vh] block">
       <span className="mb-[1.06vh] block text-[clamp(7px,1.38vh,14px)] font-bold lowercase leading-none">password</span>
@@ -34,8 +34,8 @@ export function LoginPasswordField({ isVisible, onToggleVisibility, required = f
   );
 }
 
-export function LoginActions({ message, messageTone, onForgotPassword, onSignUp }: { message?: string; messageTone?: "error" | "success" | "info"; onForgotPassword: () => void; onSignUp: () => void; }) {
-  const messageColor = messageTone === "error" ? "text-red-600" : messageTone === "success" ? "text-[#108bad]" : "text-[#108bad]";
+export function LoginActions({ message, messageTone, onForgotPassword, onSignUp }: { message?: string; messageTone?: "error" | "success" | "info"; onForgotPassword: () => void; onSignUp: () => void }) {
+  const messageColor = messageTone === "error" ? "text-red-600" : "text-[#108bad]";
   return (
     <>
       <button type="button" onClick={onForgotPassword} className="mb-[3.7vh] block w-full text-right text-[clamp(4px,1.06vh,11px)] font-medium capitalize leading-none text-[#8c8c8c] max-md:mb-[2.2vh]">forget password</button>
@@ -78,7 +78,7 @@ export function LoginSocialSection() {
   );
 }
 
-export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => void; onSignUp: () => void; }) {
+export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => void; onSignUp: () => void }) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<"error" | "success" | "info">("info");
@@ -104,25 +104,9 @@ export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => 
       setRole(role as "swimmer" | "coach" | "manager");
 
       if (role === "swimmer") {
-        updateSwimmerDraft({
-          id: user.id,
-          firstName: user.first_name || "",
-          lastName: user.last_name || "",
-          gender: user.gender || "",
-          age: user.age?.toString() || "",
-          phone: user.phone || "",
-          level: user.level || "",
-          email: user.email || "",
-        });
+        updateSwimmerDraft({ id: user.id, firstName: user.first_name || "", lastName: user.last_name || "", gender: user.gender || "", age: user.age?.toString() || "", phone: user.phone || "", level: user.level || "", email: user.email || "" });
       } else if (role === "coach") {
-        updateCoachDraft({
-          id: user.id,
-          firstName: user.first_name || "",
-          lastName: user.last_name || "",
-          gender: user.gender || "",
-          phone: user.phone || "",
-          email: user.email || "",
-        });
+        updateCoachDraft({ id: user.id, firstName: user.first_name || "", lastName: user.last_name || "", gender: user.gender || "", phone: user.phone || "", email: user.email || "" });
       }
 
       setMessage("Login successful!");
@@ -140,7 +124,7 @@ export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => 
     <form onSubmit={handleLoginSubmit} className="absolute left-[61.8vw] top-[22.3vh] w-[21.9vw] min-w-[133px] max-w-[360px] text-[#0b0b0b] max-md:left-1/2 max-md:top-[53vh] max-md:w-[64vw] max-md:max-w-[280px] max-md:-translate-x-1/2">
       <LoginHeader />
       <LoginTextField label="username" name="username" autoComplete="username" required />
-      <LoginPasswordField isVisible={isPasswordVisible} required onToggleVisibility={() => setIsPasswordVisible((current) => !current)} />
+      <LoginPasswordField isVisible={isPasswordVisible} required onToggleVisibility={() => setIsPasswordVisible((v) => !v)} />
       <LoginActions
         message={isLoading ? "Logging in..." : message}
         messageTone={messageTone}
@@ -152,7 +136,7 @@ export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => 
   );
 }
 
-export function LoginScreen({ onSignIn, onSignUp }: { onSignIn: (role: string) => void; onSignUp: () => void; }) {
+export function LoginScreen({ onSignIn, onSignUp }: { onSignIn: (role: string) => void; onSignUp: () => void }) {
   return (
     <ScreenShell>
       <LoginHeroImage />
@@ -161,7 +145,7 @@ export function LoginScreen({ onSignIn, onSignUp }: { onSignIn: (role: string) =
   );
 }
 
-export function RoleButton({ label, onClick }: { label: string; onClick?: () => void; }) {
+export function RoleButton({ label, onClick }: { label: string; onClick?: () => void }) {
   return <button type="button" onClick={onClick} className="min-h-[44px] w-[clamp(124px,15.6vw,190px)] rounded-full bg-white text-[clamp(12px,1.45vh,14px)] font-extrabold text-[#095775] shadow-[0_8px_18px_-14px_rgba(0,0,0,0.85)] transition hover:-translate-y-0.5 hover:bg-[#f7fdff] md:min-h-[clamp(20px,4.25vh,42px)]">{label}</button>;
 }
 
@@ -177,7 +161,7 @@ export function RoleHeroImage() {
   );
 }
 
-export function RoleOptions({ onManager, onCoach, onSwimmer }: { onManager: () => void; onCoach: () => void; onSwimmer: () => void; }) {
+export function RoleOptions({ onManager, onCoach, onSwimmer }: { onManager: () => void; onCoach: () => void; onSwimmer: () => void }) {
   return (
     <div className="absolute left-1/2 top-[30vh] z-10 flex -translate-x-1/2 flex-col items-center max-md:top-[33vh]">
       <p className="mb-[1.1vh] text-[clamp(10px,1.9vh,18px)] font-extrabold tracking-0 text-black">I am a ...</p>
@@ -190,7 +174,7 @@ export function RoleOptions({ onManager, onCoach, onSwimmer }: { onManager: () =
   );
 }
 
-export function RoleSelectionScreen({ onBack, onManager, onCoach, onSwimmer }: { onBack: () => void; onManager: () => void; onCoach: () => void; onSwimmer: () => void; }) {
+export function RoleSelectionScreen({ onBack, onManager, onCoach, onSwimmer }: { onBack: () => void; onManager: () => void; onCoach: () => void; onSwimmer: () => void }) {
   return (
     <ScreenShell>
       <BackButton onClick={onBack} />
@@ -222,27 +206,27 @@ function BigProfileIcon() {
 export function ProfileScreen() {
   const router = useRouter();
   const { coachDraft, role, swimmerDraft } = useSignupDraft();
-  
+
   const sessionUser = getSessionUser();
   const activeRole = role || sessionUser?.role;
   const activeDraft = activeRole === "swimmer" ? swimmerDraft : coachDraft;
 
-  const getBackPath = (role: string | null) => {
+  function getBackPath(role: string | null) {
     if (role === "coach") return "/coach/home";
     if (role === "swimmer") return "/swimmer/home";
     if (role === "manager") return "/manager/home";
     return "/roles";
-  };
+  }
 
   const fName = activeDraft.firstName || sessionUser?.first_name || "";
   const lName = activeDraft.lastName || sessionUser?.last_name || "";
   const username = [fName, lName].filter(Boolean).join(" ") || (activeRole === "manager" ? "Manager" : "Unknown");
-  
+
   const profileRows = activeRole === "swimmer"
     ? [["Username", username], ["Gender", swimmerDraft.gender || sessionUser?.gender || "gender"], ["Age", swimmerDraft.age || sessionUser?.age || "age"], ["Phone", swimmerDraft.phone || sessionUser?.phone || "phone"], ["Level", swimmerDraft.level || sessionUser?.level || "level"]]
     : activeRole === "manager"
-      ? [["Username", "Manager"], ["Gender", sessionUser?.gender || "gender"], ["Phone", sessionUser?.phone || "phone"], ["Role", "Manager"]]
-      : [["Username", username], ["Gender", coachDraft.gender || sessionUser?.gender || "gender"], ["Phone", coachDraft.phone || sessionUser?.phone || "phone"], ["Role", "Coach"]];
+    ? [["Username", "Manager"], ["Gender", sessionUser?.gender || "gender"], ["Phone", sessionUser?.phone || "phone"], ["Role", "Manager"]]
+    : [["Username", username], ["Gender", coachDraft.gender || sessionUser?.gender || "gender"], ["Phone", coachDraft.phone || sessionUser?.phone || "phone"], ["Role", "Coach"]];
 
   return (
     <main className="min-h-screen bg-[#dbe9ef] text-black">
@@ -267,33 +251,25 @@ export function ProfileScreen() {
 export function ProfileEditScreen() {
   const router = useRouter();
   const { coachDraft, role, swimmerDraft, updateCoachDraft, updateSwimmerDraft } = useSignupDraft();
-  
+
   const sessionUser = getSessionUser();
   const activeRole = role || sessionUser?.role;
   const activeDraft = activeRole === "swimmer" ? swimmerDraft : coachDraft;
-  
+
   const defaultValues = {
     firstName: activeDraft.firstName || sessionUser?.first_name || "",
     lastName: activeDraft.lastName || sessionUser?.last_name || "",
     gender: activeDraft.gender || sessionUser?.gender || "",
-    phone: activeDraft.phone || sessionUser?.phone || ""
+    phone: activeDraft.phone || sessionUser?.phone || "",
   };
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<Pick<CoachSignupDraft, "firstName" | "lastName" | "gender" | "phone">>({
-    defaultValues
-  });
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<Pick<CoachSignupDraft, "firstName" | "lastName" | "gender" | "phone">>({ defaultValues });
 
-  useEffect(() => {
-    reset(defaultValues);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRole, reset]);
+  useEffect(() => { reset(defaultValues); }, [activeRole, reset]);
 
   async function onSubmit(values: any) {
     if (activeRole === "swimmer") updateSwimmerDraft(values);
     if (activeRole === "coach") updateCoachDraft(values);
-    
-    // ملاحظة: لا يوجد مسار تعديل حساب في الواجهة الخلفية (Backend) حالياً
-    // سيتم حفظ التعديلات محلياً في حالة التصفح الحالية
     router.push("/profile");
   }
 
@@ -306,11 +282,15 @@ export function ProfileEditScreen() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 rounded-[18px] bg-white/65 p-6 shadow-[0_16px_28px_-24px_rgba(0,0,0,0.8)]">
             <label className="block"><span className="mb-2 block text-sm font-black">First name</span><input type="text" {...register("firstName", { required: "First name is required." })} className="h-12 w-full rounded-full border border-black/25 bg-white px-4 text-base font-semibold outline-none focus:border-[#108bad] focus:ring-2 focus:ring-[#108bad]/20" />{errors.firstName && <p className="mt-1 text-xs font-bold text-[#c0392b]">{errors.firstName.message}</p>}</label>
             <label className="block"><span className="mb-2 block text-sm font-black">Last name</span><input type="text" {...register("lastName", { required: "Last name is required." })} className="h-12 w-full rounded-full border border-black/25 bg-white px-4 text-base font-semibold outline-none focus:border-[#108bad] focus:ring-2 focus:ring-[#108bad]/20" />{errors.lastName && <p className="mt-1 text-xs font-bold text-[#c0392b]">{errors.lastName.message}</p>}</label>
-            <fieldset><legend className="mb-3 text-sm font-black">Gender</legend><div className="grid grid-cols-2 gap-4">
-              {[{ label: "Male", value: "male" }, { label: "Female", value: "female" }].map((option) => (
-                <label key={option.value} className="flex min-h-11 items-center gap-2 text-sm font-black"><input type="radio" value={option.value} {...register("gender", { required: "Gender is required." })} className="h-5 w-5 appearance-none rounded-full border border-[#8d8d8d] bg-white checked:border-[5px] checked:border-[#108bad] focus:outline-none focus:ring-2 focus:ring-[#108bad]/20" />{option.label}</label>
-              ))}
-            </div>{errors.gender && <p className="mt-1 text-xs font-bold text-[#c0392b]">{errors.gender.message}</p>}</fieldset>
+            <fieldset>
+              <legend className="mb-3 text-sm font-black">Gender</legend>
+              <div className="grid grid-cols-2 gap-4">
+                {[{ label: "Male", value: "male" }, { label: "Female", value: "female" }].map((option) => (
+                  <label key={option.value} className="flex min-h-11 items-center gap-2 text-sm font-black"><input type="radio" value={option.value} {...register("gender", { required: "Gender is required." })} className="h-5 w-5 appearance-none rounded-full border border-[#8d8d8d] bg-white checked:border-[5px] checked:border-[#108bad] focus:outline-none focus:ring-2 focus:ring-[#108bad]/20" />{option.label}</label>
+                ))}
+              </div>
+              {errors.gender && <p className="mt-1 text-xs font-bold text-[#c0392b]">{errors.gender.message}</p>}
+            </fieldset>
             <label className="block"><span className="mb-2 block text-sm font-black">Phone</span><input type="tel" {...register("phone", { required: "Phone is required." })} className="h-12 w-full rounded-full border border-black/25 bg-white px-4 text-base font-semibold outline-none focus:border-[#108bad] focus:ring-2 focus:ring-[#108bad]/20" />{errors.phone && <p className="mt-1 text-xs font-bold text-[#c0392b]">{errors.phone.message}</p>}</label>
             <button type="submit" className="mt-4 flex h-12 w-full items-center justify-center rounded-full bg-[#108bad] text-sm font-black text-white shadow-[0_10px_18px_-14px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a]">Save</button>
           </form>
@@ -323,30 +303,45 @@ export function ProfileEditScreen() {
 export function SettingsScreen() {
   const router = useRouter();
   const { resetSignupDraft, role } = useSignupDraft();
-  
+
   const sessionUser = getSessionUser();
   const activeRole = role || sessionUser?.role;
 
-  const getBackPath = (role: string | null) => {
-    if (role === "coach") return "/coach/menu";
+  const isSwimmer = activeRole === "swimmer";
+  const isCoach   = activeRole === "coach";
+
+  function getBackPath(role: string | null) {
+    if (role === "coach")   return "/coach/menu";
     if (role === "swimmer") return "/swimmer/home";
     if (role === "manager") return "/manager/home";
     return "/roles";
-  };
+  }
 
   async function handleDeleteAccount() {
     const confirmed = window.confirm("Are you sure you want to delete your account?");
     if (!confirmed) return;
     try {
-      // Backend request
+      // TODO: DELETE /auth/account
     } catch {
-      // Ignored
+      // ignored
     } finally {
       resetSignupDraft();
       clearSession();
       router.replace("/login");
     }
   }
+
+  // ✅ إصلاح: الـ buttons بتتفلتر حسب الدور
+  const settingsButtons = [
+    // Booking → للـ Swimmer فقط
+    ...(isSwimmer ? [{ label: "Booking", onClick: () => router.push("/booking") }] : []),
+    // Edit profile → للـ Swimmer والـ Coach
+    ...(isSwimmer || isCoach ? [{ label: "Edit profile", onClick: () => router.push("/profile/edit") }] : []),
+    // Attendance → للـ Swimmer والـ Coach
+    ...(isSwimmer || isCoach ? [{ label: "Attendance", onClick: () => router.push("/attendance") }] : []),
+    // Delete account → للكل
+    { label: "Delete account", onClick: handleDeleteAccount },
+  ];
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#fffef8] text-black">
@@ -355,18 +350,15 @@ export function SettingsScreen() {
         <button type="button" onClick={() => router.push(getBackPath(activeRole))} aria-label="Back" className="absolute left-[clamp(28px,3.7vw,70px)] top-[clamp(26px,5.4vh,58px)] z-30 flex h-[54px] w-[58px] items-center justify-center rounded-full bg-[#108bad] text-white shadow-[0_10px_18px_-14px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a]"><BackArrowIcon /></button>
         <h1 className="ml-[clamp(92px,11vw,150px)] pt-[clamp(48px,6vh,58px)] text-[clamp(30px,2.3vw,36px)] font-black leading-none max-md:ml-0 max-md:pt-20">Settings</h1>
         <div className="relative flex min-h-[calc(100vh-178px)] items-center justify-center py-10">
-          <div className="absolute left-1/2 top-1/2 h-[min(56vw,650px)] min-h-[360px] w-[min(68vw,980px)] -translate-x-1/2 -translate-y-1/2 max-lg:h-[56vw] max-lg:w-[86vw] max-md:h-[62vh] max-md:min-h-[390px] max-md:w-[115vw]"><Image src="/images/swimmer-table-bg-removebg-preview.png" alt="Swimmer background" fill priority sizes="(max-width: 768px) 115vw, (max-width: 1024px) 86vw, 68vw" className="object-contain object-center opacity-80" /></div>
+          <div className="absolute left-1/2 top-1/2 h-[min(56vw,650px)] min-h-[360px] w-[min(68vw,980px)] -translate-x-1/2 -translate-y-1/2 max-lg:h-[56vw] max-lg:w-[86vw] max-md:h-[62vh] max-md:min-h-[390px] max-md:w-[115vw]">
+            <Image src="/images/swimmer-table-bg-removebg-preview.png" alt="Swimmer background" fill priority sizes="(max-width: 768px) 115vw, (max-width: 1024px) 86vw, 68vw" className="object-contain object-center opacity-80" />
+          </div>
           <div className="relative z-10 flex w-full flex-col items-center gap-[clamp(24px,4.8vh,54px)]">
-            <button type="button" onClick={() => router.push("/booking")} className="flex h-[80px] w-[282px] items-center justify-center rounded-[18px] bg-white text-[24px] font-medium text-black shadow-[0_12px_18px_-14px_rgba(0,0,0,0.85)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_22px_-16px_rgba(0,0,0,0.9)] max-md:h-[64px] max-md:w-full max-md:max-w-[282px] max-md:text-[20px]">Booking</button>
-            <button type="button" onClick={() => router.push("/profile/edit")} className="flex h-[80px] w-[282px] items-center justify-center rounded-[18px] bg-white text-[24px] font-medium text-black shadow-[0_12px_18px_-14px_rgba(0,0,0,0.85)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_22px_-16px_rgba(0,0,0,0.9)] max-md:h-[64px] max-md:w-full max-md:max-w-[282px] max-md:text-[20px]">Edit profile</button>
-            <button type="button" onClick={() => router.push("/attendance")} className="flex h-[80px] w-[282px] items-center justify-center rounded-[18px] bg-white text-[24px] font-medium text-black shadow-[0_12px_18px_-14px_rgba(0,0,0,0.85)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_22px_-16px_rgba(0,0,0,0.9)] max-md:h-[64px] max-md:w-full max-md:max-w-[282px] max-md:text-[20px]">Attendance</button>
-            <button
-              type="button"
-              onClick={handleDeleteAccount}
-              className="flex h-[80px] w-[282px] items-center justify-center rounded-[18px] bg-white text-[24px] font-medium text-black shadow-[0_12px_18px_-14px_rgba(0,0,0,0.85)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_22px_-16px_rgba(0,0,0,0.9)] max-md:h-[64px] max-md:w-full max-md:max-w-[282px] max-md:text-[20px]"
-            >
-              Delete account
-            </button>
+            {settingsButtons.map(({ label, onClick }) => (
+              <button key={label} type="button" onClick={onClick} className="flex h-[80px] w-[282px] items-center justify-center rounded-[18px] bg-white text-[24px] font-medium text-black shadow-[0_12px_18px_-14px_rgba(0,0,0,0.85)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_22px_-16px_rgba(0,0,0,0.9)] max-md:h-[64px] max-md:w-full max-md:max-w-[282px] max-md:text-[20px]">
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       </section>

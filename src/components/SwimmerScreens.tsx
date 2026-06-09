@@ -22,15 +22,14 @@ function SmallProfileIcon() {
 export function SwimmerHomeScreen() {
   const router = useRouter();
   const { swimmerDraft } = useSignupDraft();
-  
-  // ✅ حل اختفاء البيانات: القراءة المباشرة من المتغيرات
+
   const sessionUser = typeof window !== "undefined" ? getSessionUser() : null;
   const fName = swimmerDraft.firstName || sessionUser?.first_name || "";
   const lName = swimmerDraft.lastName || sessionUser?.last_name || "";
   const swimmerName = [fName, lName].filter(Boolean).join(" ");
   const ageDisplay = swimmerDraft.age || sessionUser?.age || "-";
   const levelDisplay = swimmerDraft.level || sessionUser?.level || "-";
-  
+
   const [scheduleList, setScheduleList] = useState<any[]>([]);
   const [assignedCoach, setAssignedCoach] = useState<string>("Not assigned yet");
 
@@ -92,7 +91,7 @@ export function SwimmerHomeScreen() {
 
 const maxSelectedDays = 2;
 
-export function SwimmerScheduleScreen({ onBack, onNext }: { onBack: () => void; onNext: () => void; }) {
+export function SwimmerScheduleScreen({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
   const { setRole, swimmerDraft, updateSwimmerDraft } = useSignupDraft();
   const { clearErrors, control, formState: { errors }, handleSubmit, setError, setValue } = useForm({ defaultValues: { trainingDays: swimmerDraft.trainingDays } });
   const selectedDays = useWatch({ control, name: "trainingDays" }) ?? [];
@@ -129,7 +128,7 @@ export function SwimmerScheduleScreen({ onBack, onNext }: { onBack: () => void; 
   );
 }
 
-export function SwimmerHoursScreen({ onBack, onDone }: { onBack: () => void; onDone: () => void; }) {
+export function SwimmerHoursScreen({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
   const { setRole, swimmerDraft, updateSwimmerDraft } = useSignupDraft();
   const { register, handleSubmit, formState: { errors } } = useForm({ defaultValues: { trainingHours: swimmerDraft.trainingHours } });
 
@@ -167,7 +166,7 @@ export function SwimmerSignupForm({ onComplete }: { onComplete?: () => void }) {
   const { setRole, swimmerDraft, updateSwimmerDraft } = useSignupDraft();
   const [apiError, setApiError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter(); 
+  const router = useRouter();
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<Pick<SwimmerSignupDraft, "firstName" | "lastName" | "gender" | "age" | "phone" | "level" | "email" | "password" | "confirmPassword">>({
     defaultValues: { firstName: swimmerDraft.firstName, lastName: swimmerDraft.lastName, gender: swimmerDraft.gender, age: swimmerDraft.age, phone: swimmerDraft.phone, level: swimmerDraft.level, email: swimmerDraft.email, password: swimmerDraft.password, confirmPassword: swimmerDraft.confirmPassword },
@@ -185,7 +184,8 @@ export function SwimmerSignupForm({ onComplete }: { onComplete?: () => void }) {
       updateSwimmerDraft(values);
       await submitSwimmerSignupDraft({ ...swimmerDraft, ...values });
       if (onComplete) onComplete();
-      router.push("/login"); 
+      // ✅ إصلاح: بعد التسجيل روح لاختيار الأيام مش للوجين
+      router.push("/swimmer/schedule");
     } catch (error: any) {
       setApiError(error.message || "Registration failed. Please try again.");
     } finally {
@@ -215,7 +215,7 @@ export function SwimmerSignupForm({ onComplete }: { onComplete?: () => void }) {
   );
 }
 
-export function SwimmerSignupScreen({ onBack, onComplete }: { onBack: () => void; onComplete?: () => void; }) {
+export function SwimmerSignupScreen({ onBack, onComplete }: { onBack: () => void; onComplete?: () => void }) {
   return (
     <ScreenShell>
       <BackButton onClick={onBack} />
