@@ -1,6 +1,7 @@
 // مسار الملف: src/core/api.ts
 
 import type { CoachSignupPayload, SwimmerSignupPayload } from "./types";
+import { completeSignupWithLogin } from "./authFlow.mjs";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api-academy-production-c1ab.up.railway.app/api";
 
@@ -69,22 +70,25 @@ export async function loginUser(credentials: { email?: string; username?: string
 }
 
 export async function submitSwimmerSignupDraft(payload: SwimmerSignupPayload) {
-  const data = await fetchApi("/auth/register", {
-    method: "POST",
-    body: JSON.stringify({
-      role: "swimmer",
-      email: payload.email,
-      password: payload.password,
-      confirm_password: payload.confirmPassword,
-      first_name: payload.firstName,
-      last_name: payload.lastName,
-      gender: payload.gender,
-      age: Number(payload.age),
-      phone: payload.phone,
-      level: payload.level,
+  return completeSignupWithLogin(
+    payload,
+    () => fetchApi("/auth/register", {
+      method: "POST",
+      body: JSON.stringify({
+        role: "swimmer",
+        email: payload.email,
+        password: payload.password,
+        confirm_password: payload.confirmPassword,
+        first_name: payload.firstName,
+        last_name: payload.lastName,
+        gender: payload.gender,
+        age: Number(payload.age),
+        phone: payload.phone,
+        level: payload.level,
+      }),
     }),
-  });
-  return data;
+    loginUser,
+  );
 }
 
 export async function submitCoachSignupDraft(payload: CoachSignupPayload) {

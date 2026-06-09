@@ -1,11 +1,25 @@
-// مسار الملف: src/components/BookingScreens.tsx
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import {
+  PAYMENT_FORM_FIELDS,
+  PAYMENT_ROUTE,
+  createEmptyPaymentDetails,
+  getPaymentSuccessMessage,
+} from "@/core/paymentFlow.mjs";
 import { BackButton } from "./SharedUI";
-import { BookingsAPI, CoachAPI } from "@/core/api";
-import { useSignupDraft } from "@/core/SignupContext";
+
+type PaymentFieldName = "cardNumber" | "cardHolderName" | "expireDate" | "cvc";
+type PaymentDetails = Record<PaymentFieldName, string>;
+type PaymentFormField = {
+  name: PaymentFieldName;
+  label: string;
+  autoComplete: string;
+  inputMode: "numeric" | "text";
+};
+
+const paymentFormFields = PAYMENT_FORM_FIELDS as readonly PaymentFormField[];
 
 const offers = [
   { title: "70 / day", note: "One training day", plan: "daily" },
@@ -23,7 +37,7 @@ export function BookingScreen() {
     if (typeof window !== "undefined") {
       sessionStorage.setItem("selectedPlan", plan);
     }
-    router.push("/booking/payment");
+    router.push(PAYMENT_ROUTE);
   }
 
   return (
@@ -70,70 +84,34 @@ export function BookingScreen() {
 
 export function PaymentScreen() {
   const router = useRouter();
-  const { role, swimmerDraft } = useSignupDraft();
+  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>(() => createEmptyPaymentDetails() as PaymentDetails);
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<"success" | "error">("success");
-  const [isLoading, setIsLoading] = useState(false);
 
-  // بيانات المدربين والأيام والأوقات المتاحة
-  const [coaches, setCoaches] = useState<any[]>([]);
-  const [availableDays, setAvailableDays] = useState<string[]>([]);
-  const [availableTimes, setAvailableTimes] = useState<string[]>([]);
-  const [selectedCoach, setSelectedCoach] = useState("");
-  const [selectedDay, setSelectedDay] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
-  const [isFetchingOptions, setIsFetchingOptions] = useState(true);
+  function updatePaymentDetails(name: PaymentFieldName, value: string) {
+    setPaymentDetails((currentDetails) => ({
+      ...currentDetails,
+      [name]: value,
+    }));
 
-  // جلب المدربين والأيام والأوقات المتاحة من الـ API
-  useEffect(() => {
-    async function loadOptions() {
-      setIsFetchingOptions(true);
-      try {
-        const [coachesList, daysList, timesList] = await Promise.all([
-          CoachAPI.getList().catch(() => []),
-          CoachAPI.getDays().catch(() => []),
-          CoachAPI.getTimes().catch(() => []),
-        ]);
-        setCoaches(Array.isArray(coachesList) ? coachesList : coachesList?.coaches ?? []);
-        setAvailableDays(Array.isArray(daysList) ? daysList : daysList?.days ?? []);
-        setAvailableTimes(Array.isArray(timesList) ? timesList : timesList?.times ?? []);
-      } catch {
-        // تجاهل الخطأ والبيانات هتبقى فاضية
-      } finally {
-        setIsFetchingOptions(false);
-      }
+    if (message) {
+      setMessage("");
     }
-    loadOptions();
-  }, []);
+  }
 
-  async function handleBook(event: FormEvent<HTMLFormElement>) {
+  function handlePayNow(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedCoach || !selectedDay || !selectedTime) {
-      setMessage("Please select a coach, day, and time.");
-      setMessageTone("error");
+
+    const successMessage = getPaymentSuccessMessage(paymentDetails);
+    if (successMessage) {
+      setMessage(successMessage);
+      setMessageTone("success");
+      if (typeof window !== "undefined") sessionStorage.removeItem("selectedPlan");
       return;
     }
 
-    setIsLoading(true);
-    setMessage("");
-
-    try {
-      await BookingsAPI.create({
-        role: role || "swimmer",
-        swimmer_id: swimmerDraft?.id,
-        coach_id: Number(selectedCoach),
-        day: selectedDay,
-        time: selectedTime,
-      });
-      setMessage("Booking confirmed successfully!");
-      setMessageTone("success");
-      if (typeof window !== "undefined") sessionStorage.removeItem("selectedPlan");
-    } catch (error: any) {
-      setMessage(error.message || "Booking failed. Please try again.");
-      setMessageTone("error");
-    } finally {
-      setIsLoading(false);
-    }
+    setMessage("Please fill in all card details.");
+    setMessageTone("error");
   }
 
   return (
@@ -142,75 +120,54 @@ export function PaymentScreen() {
         <BackButton onClick={() => router.push("/booking")} />
         <h1 className="pt-16 text-[clamp(26px,3vw,36px)] font-black">Booking</h1>
 
-        <form onSubmit={handleBook} className="mx-auto mt-10 max-w-3xl rounded-[28px] bg-[#d9d9d9] px-8 py-10">
-          <h2 className="text-xl font-black">Book a session</h2>
+        <form onSubmit={handlePayNow} className="mx-auto mt-10 max-w-4xl rounded-[42px] bg-[#d9d9d9] px-8 py-12 sm:px-14 lg:px-20">
+          <h2 className="text-xl font-black">Credit details</h2>
 
-          {isFetchingOptions ? (
-            <p className="mt-6 text-sm font-bold text-black/50">Loading available options...</p>
-          ) : (
-            <div className="mt-8 space-y-5">
-              {/* اختيار المدرب */}
-              <label className="block">
-                <span className="mb-2 block text-sm font-black">Coach</span>
-                <select
+          <div className="mx-auto mt-8 grid max-w-md gap-5">
+            {paymentFormFields.slice(0, 2).map((field) => (
+              <label key={field.name} className="block">
+                <span className="mb-2 block text-sm font-black">{field.label}</span>
+                <input
                   required
-                  value={selectedCoach}
-                  onChange={(e) => setSelectedCoach(e.target.value)}
-                  className="h-11 w-full rounded-full border border-black/15 bg-white px-4 outline-none focus:border-[#108bad] focus:ring-2 focus:ring-[#108bad]/20"
-                >
-                  <option value="">Select a coach</option>
-                  {coaches.map((coach: any) => (
-                    <option key={coach.id} value={coach.id}>
-                      {coach.first_name} {coach.last_name}
-                    </option>
-                  ))}
-                </select>
+                  name={field.name}
+                  type="text"
+                  inputMode={field.inputMode}
+                  autoComplete={field.autoComplete}
+                  value={paymentDetails[field.name]}
+                  onChange={(event) => updatePaymentDetails(field.name, event.target.value)}
+                  className="h-9 w-full rounded-full border-0 bg-white px-4 text-sm font-bold outline-none transition focus:ring-2 focus:ring-[#108bad]/35"
+                />
               </label>
+            ))}
 
-              {/* اختيار اليوم */}
-              <label className="block">
-                <span className="mb-2 block text-sm font-black">Day</span>
-                <select
-                  required
-                  value={selectedDay}
-                  onChange={(e) => setSelectedDay(e.target.value)}
-                  className="h-11 w-full rounded-full border border-black/15 bg-white px-4 outline-none focus:border-[#108bad] focus:ring-2 focus:ring-[#108bad]/20"
-                >
-                  <option value="">Select a day</option>
-                  {availableDays.map((day: string) => (
-                    <option key={day} value={day}>{day}</option>
-                  ))}
-                </select>
-              </label>
-
-              {/* اختيار الوقت */}
-              <label className="block">
-                <span className="mb-2 block text-sm font-black">Time</span>
-                <select
-                  required
-                  value={selectedTime}
-                  onChange={(e) => setSelectedTime(e.target.value)}
-                  className="h-11 w-full rounded-full border border-black/15 bg-white px-4 outline-none focus:border-[#108bad] focus:ring-2 focus:ring-[#108bad]/20"
-                >
-                  <option value="">Select a time</option>
-                  {availableTimes.map((time: string) => (
-                    <option key={time} value={time}>{time}</option>
-                  ))}
-                </select>
-              </label>
+            <div className="grid grid-cols-2 gap-8">
+              {paymentFormFields.slice(2).map((field) => (
+                <label key={field.name} className="block">
+                  <span className="mb-2 block text-sm font-black">{field.label}</span>
+                  <input
+                    required
+                    name={field.name}
+                    type="text"
+                    inputMode={field.inputMode}
+                    autoComplete={field.autoComplete}
+                    value={paymentDetails[field.name]}
+                    onChange={(event) => updatePaymentDetails(field.name, event.target.value)}
+                    className="h-9 w-full rounded-full border-0 bg-white px-4 text-sm font-bold outline-none transition focus:ring-2 focus:ring-[#108bad]/35"
+                  />
+                </label>
+              ))}
             </div>
-          )}
+          </div>
 
           <button
             type="submit"
-            disabled={isLoading || isFetchingOptions}
-            className="mx-auto mt-10 block min-h-11 w-36 rounded-full bg-[#108bad] text-sm font-black text-white transition hover:bg-[#0d7c9a] disabled:opacity-60"
+            className="mx-auto mt-10 block min-h-9 w-28 rounded-full bg-[#108bad] text-sm font-black lowercase text-white transition hover:bg-[#0d7c9a]"
           >
-            {isLoading ? "Booking..." : "Confirm Booking"}
+            pay now
           </button>
 
           {message && (
-            <p className={`mt-4 text-center text-sm font-black ${messageTone === "success" ? "text-[#108bad]" : "text-red-600"}`}>
+            <p aria-live="polite" className={`mt-4 text-center text-sm font-black ${messageTone === "success" ? "text-[#108bad]" : "text-red-600"}`}>
               {message}
             </p>
           )}
