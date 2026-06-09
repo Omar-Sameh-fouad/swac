@@ -7,8 +7,16 @@ import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { useSignupDraft } from "@/core/SignupContext";
 import { scheduleDays, scheduleHours, type SwimmerSignupDraft } from "@/core/types";
+import { getSwimmerPostSignupRoute } from "@/core/signupFlow.mjs";
 import { BackButton, ScreenShell, FormField, GenderSelector, SignupSubmitButton } from "./SharedUI";
 import { submitSwimmerSignupDraft, ScheduleAPI, getSessionUser } from "@/core/api";
+
+type TrainingScheduleRow = {
+  day?: string;
+  time?: string;
+};
+
+type SwimmerSignupValues = Pick<SwimmerSignupDraft, "firstName" | "lastName" | "gender" | "age" | "phone" | "level" | "email" | "password" | "confirmPassword">;
 
 function SmallProfileIcon() {
   return (
@@ -31,7 +39,7 @@ export function SwimmerHomeScreen() {
   const ageDisplay = swimmerDraft.age || sessionUser?.age || "-";
   const levelDisplay = swimmerDraft.level || sessionUser?.level || "-";
   
-  const [scheduleList, setScheduleList] = useState<any[]>([]);
+  const [scheduleList, setScheduleList] = useState<TrainingScheduleRow[]>([]);
   const [assignedCoach, setAssignedCoach] = useState<string>("Not assigned yet");
 
   useEffect(() => {
@@ -47,7 +55,7 @@ export function SwimmerHomeScreen() {
     loadSchedule();
   }, []);
 
-  const displayRows = scheduleList.length > 0 ? scheduleList : Array.from({ length: 2 }).map(() => ({}));
+  const displayRows: TrainingScheduleRow[] = scheduleList.length > 0 ? scheduleList : Array.from({ length: 2 }).map(() => ({}));
 
   return (
     <main className="min-h-screen bg-[#fffef8] text-black">
@@ -169,7 +177,7 @@ export function SwimmerSignupForm({ onComplete }: { onComplete?: () => void }) {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter(); 
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm<Pick<SwimmerSignupDraft, "firstName" | "lastName" | "gender" | "age" | "phone" | "level" | "email" | "password" | "confirmPassword">>({
+  const { register, handleSubmit, control, formState: { errors } } = useForm<SwimmerSignupValues>({
     defaultValues: { firstName: swimmerDraft.firstName, lastName: swimmerDraft.lastName, gender: swimmerDraft.gender, age: swimmerDraft.age, phone: swimmerDraft.phone, level: swimmerDraft.level, email: swimmerDraft.email, password: swimmerDraft.password, confirmPassword: swimmerDraft.confirmPassword },
   });
   const password = useWatch({ control, name: "password" }) ?? "";
@@ -177,17 +185,20 @@ export function SwimmerSignupForm({ onComplete }: { onComplete?: () => void }) {
   const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
   const passwordMismatch = confirmPassword.length > 0 && password !== confirmPassword;
 
-  async function onSubmit(values: any) {
+  async function onSubmit(values: SwimmerSignupValues) {
     setApiError("");
     setIsLoading(true);
     try {
       setRole("swimmer");
       updateSwimmerDraft(values);
-      await submitSwimmerSignupDraft({ ...swimmerDraft, ...values });
-      if (onComplete) onComplete();
-      router.push("/login"); 
-    } catch (error: any) {
-      setApiError(error.message || "Registration failed. Please try again.");
+      await submitSwimmerSignupDraft({ ...swimmerDraft, ...values, role: "swimmer" });
+      if (onComplete) {
+        onComplete();
+        return;
+      }
+      router.push(getSwimmerPostSignupRoute());
+    } catch (error: unknown) {
+      setApiError(error instanceof Error ? error.message : "Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
