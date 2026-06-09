@@ -5,13 +5,56 @@ import type { CoachSignupPayload, SwimmerSignupPayload } from "./types";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api-academy-production-c1ab.up.railway.app/api";
 
 // ==========================================
+// 0. Session Helpers — Token & User
+// ==========================================
+
+const TOKEN_KEY = "swim-master-token";
+const USER_KEY  = "swim-master-user";
+
+/** يحفظ التوكن والـ user بعد login/register ناجح */
+export function saveSession(data: { token?: string; user?: Record<string, any> }) {
+  if (typeof window === "undefined") return;
+  if (data.token) localStorage.setItem(TOKEN_KEY, data.token);
+  if (data.user)  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+}
+
+/** يرجع التوكن المحفوظ (أو null لو مفيش) */
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+/** يرجع الـ user المحفوظ بعد الـ login (أو null) */
+export function getSessionUser(): Record<string, any> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** يمسح الـ session عند الـ logout */
+export function clearSession() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
+// ==========================================
 // 1. الأساسيات (Fetch Wrapper)
 // ==========================================
+
 async function fetchApi(endpoint: string, options: RequestInit = {}) {
+  const token = getToken();
+
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      // ✅ إصلاح رئيسي: إضافة Authorization header في كل طلب
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
@@ -30,17 +73,22 @@ async function fetchApi(endpoint: string, options: RequestInit = {}) {
 // ==========================================
 
 export async function loginUser(credentials: { email?: string; username?: string; password: string }) {
-  return fetchApi("/auth/login", {
+  const data = await fetchApi("/auth/login", {
     method: "POST",
     body: JSON.stringify({
       email: credentials.email || credentials.username,
       password: credentials.password,
     }),
   });
+
+  // ✅ إصلاح: حفظ التوكن والـ user بعد login نجاح مباشرةً
+  saveSession({ token: data?.token, user: data?.user ?? data });
+
+  return data;
 }
 
 export async function submitSwimmerSignupDraft(payload: SwimmerSignupPayload) {
-  const registerResponse = await fetchApi("/auth/register", {
+  const data = await fetchApi("/auth/register", {
     method: "POST",
     body: JSON.stringify({
       role: "swimmer",
@@ -56,11 +104,14 @@ export async function submitSwimmerSignupDraft(payload: SwimmerSignupPayload) {
     }),
   });
 
-  return registerResponse;
+  // ✅ حفظ التوكن لو الـ register رجّع واحد مباشرةً
+  saveSession({ token: data?.token, user: data?.user ?? data });
+
+  return data;
 }
 
 export async function submitCoachSignupDraft(payload: CoachSignupPayload) {
-  const registerResponse = await fetchApi("/auth/register", {
+  const data = await fetchApi("/auth/register", {
     method: "POST",
     body: JSON.stringify({
       role: "coach",
@@ -74,22 +125,23 @@ export async function submitCoachSignupDraft(payload: CoachSignupPayload) {
     }),
   });
 
-  const coachId = registerResponse?.user?.id || registerResponse?.id;
+  // ✅ حفظ التوكن فوراً — لازم يكون موجود قبل استدعاء /coach/setup
+  saveSession({ token: data?.token, user: data?.user ?? data });
+
+  const coachId = data?.user?.id ?? data?.id;
 
   if (coachId && payload.workingDays.length > 0) {
+    // ✅ الآن fetchApi هيبعت التوكن تلقائياً — مش محتاجين role/coach_id في الـ body
     await fetchApi("/coach/setup", {
       method: "POST",
       body: JSON.stringify({
-        role: "coach",
-        coach_id: coachId,
-        logged_coach_id: coachId,
         days: payload.workingDays,
         times: payload.workingHours,
       }),
     });
   }
 
-  return registerResponse;
+  return data;
 }
 
 // ==========================================
@@ -97,9 +149,14 @@ export async function submitCoachSignupDraft(payload: CoachSignupPayload) {
 // ==========================================
 
 export const BookingsAPI = {
-  getAll: (role: string, extraParams: Record<string, any> = {}) => {
-    const query = new URLSearchParams({ role, ...extraParams }).toString();
-    return fetchApi(`/bookings?${query}`, { method: "GET" });
+  // ✅ إصلاح: شيلنا role من query params — الباك بيعتمد على الـ JWT بس
+  getAll: (extraParams: Record<string, any> = {}) => {
+    const query = new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(extraParams).map(([k, v]) => [k, String(v)])
+      )
+    ).toString();
+    return fetchApi(`/bookings${query ? `?${query}` : ""}`, { method: "GET" });
   },
   create: (data: any) => {
     return fetchApi("/bookings", {
@@ -113,10 +170,10 @@ export const BookingsAPI = {
       body: JSON.stringify(data),
     });
   },
-  delete: (bookingId: number, data: any) => {
+  delete: (bookingId: number, data?: any) => {
     return fetchApi(`/bookings/${bookingId}`, {
       method: "DELETE",
-      body: JSON.stringify(data),
+      ...(data ? { body: JSON.stringify(data) } : {}),
     });
   },
 };
@@ -126,21 +183,21 @@ export const BookingsAPI = {
 // ==========================================
 
 export const ScheduleAPI = {
-  getSchedule: (role: string, userIdKey: string, userId: number) => {
-    return fetchApi("/schedule", {
-      method: "POST",
-      body: JSON.stringify({
-        role,
-        [userIdKey]: userId,
-      }),
-    });
+  // ✅ الباك يعرف الـ user من التوكن — مش محتاجين نبعت role/userId في الـ body
+  getSchedule: () => {
+    return fetchApi("/schedule", { method: "GET" });
   },
 };
 
 export const AttendanceAPI = {
-  get: (role: string, extraParams: Record<string, any> = {}) => {
-    const query = new URLSearchParams({ role, ...extraParams }).toString();
-    return fetchApi(`/attendance?${query}`, { method: "GET" });
+  // ✅ إصلاح: شيلنا role وإضافة extra params اختيارية فقط
+  get: (extraParams: Record<string, any> = {}) => {
+    const query = new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(extraParams).map(([k, v]) => [k, String(v)])
+      )
+    ).toString();
+    return fetchApi(`/attendance${query ? `?${query}` : ""}`, { method: "GET" });
   },
   log: (data: any) => {
     return fetchApi("/attendance", {
@@ -154,10 +211,10 @@ export const AttendanceAPI = {
       body: JSON.stringify(data),
     });
   },
-  delete: (attendanceId: number, data: any) => {
+  delete: (attendanceId: number, data?: any) => {
     return fetchApi(`/attendance/${attendanceId}`, {
       method: "DELETE",
-      body: JSON.stringify(data),
+      ...(data ? { body: JSON.stringify(data) } : {}),
     });
   },
 };
@@ -185,13 +242,12 @@ export const ClassesAPI = {
 // ==========================================
 
 export const CoachAPI = {
-  getList: () => fetchApi("/coach/list?role=manager", { method: "GET" }),
-  getDays: () => fetchApi("/coach/days?role=manager", { method: "GET" }),
-  getTimes: () => fetchApi("/coach/times?role=manager", { method: "GET" }),
-  getAvailability: (coachId: number, role = "manager", loggedCoachId?: number) => {
-    const params = new URLSearchParams({ role, coach_id: String(coachId) });
-    if (loggedCoachId) params.set("logged_coach_id", String(loggedCoachId));
-    return fetchApi(`/coach/availability?${params.toString()}`, { method: "GET" });
+  // ✅ شيلنا role=manager من الـ query — الباك يعرف الـ role من التوكن
+  getList: () => fetchApi("/coach/list", { method: "GET" }),
+  getDays: () => fetchApi("/coach/days", { method: "GET" }),
+  getTimes: () => fetchApi("/coach/times", { method: "GET" }),
+  getAvailability: (coachId: number) => {
+    return fetchApi(`/coach/availability?coach_id=${coachId}`, { method: "GET" });
   },
   setup: (data: any) => fetchApi("/coach/setup", { method: "POST", body: JSON.stringify(data) }),
 };

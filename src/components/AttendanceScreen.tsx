@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AttendanceAPI } from "@/core/api";
-import { useSignupDraft } from "@/core/SignupContext";
+import { AttendanceAPI, getSessionUser } from "@/core/api";
 
 type AttendanceRow = {
   id: number;
@@ -98,26 +97,27 @@ function getNow() {
 
 export function AttendanceScreen() {
   const router = useRouter();
-  const { swimmerDraft, coachDraft, role } = useSignupDraft();
   const [rows, setRows] = useState<AttendanceRow[]>([]);
   const [isLogging, setIsLogging] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const now = getNow();
 
-  // حساب الكالندر والنسبة من الـ rows
+  // ✅ إصلاح: نجيب الـ user من الـ session المحفوظة بعد الـ login
+  // مش من useSignupDraft اللي دايماً بترجع id = undefined
+  const sessionUser = getSessionUser();
+  const userId = sessionUser?.id;
+  const role: string = sessionUser?.role ?? "swimmer";
+
   const attendedDaysSet = new Set(rows.filter((r) => r.state === "Attend").map((r) => Number(r.day)));
   const totalDays = rows.length;
   const attendedCount = rows.filter((r) => r.state === "Attend").length;
   const attendPercent = totalDays > 0 ? Math.round((attendedCount / totalDays) * 100) : 0;
 
-  // جلب سجل الحضور من السيرفر عند فتح الصفحة
   useEffect(() => {
     async function fetchAttendance() {
       try {
-        const extraParams: Record<string, any> = {};
-        if (role === "swimmer" && swimmerDraft?.id) extraParams.logged_swimmer_id = swimmerDraft.id;
-        if (role === "coach" && coachDraft?.id) extraParams.logged_coach_id = coachDraft.id;
-        const data = await AttendanceAPI.get(role || "swimmer", extraParams);
+        // ✅ إصلاح: مش بنبعت role في query params — التوكن بيعمل ذلك تلقائياً
+        const data = await AttendanceAPI.get();
         if (Array.isArray(data)) {
           const mapped: AttendanceRow[] = data.map((item: any, index: number) => {
             const date = new Date(item.date || item.created_at || Date.now());
@@ -131,31 +131,27 @@ export function AttendanceScreen() {
           setRows(mapped);
         }
       } catch {
-        // إذا الـ API مش موجودة أو فاشلة، نفضل على قائمة فاضية
+        // API فاشلة — نفضل على قائمة فاضية
       }
     }
     fetchAttendance();
-  }, [role]);
+  }, []);
 
   async function addAttendance() {
     setIsLogging(true);
     setErrorMsg("");
     try {
-      const idField = role === "coach" ? "logged_coach_id" : "logged_swimmer_id";
-      const userId = role === "coach" ? coachDraft?.id : swimmerDraft?.id;
-
       if (!userId) {
         setErrorMsg("User ID not found. Please log out and log in again.");
         setIsLogging(false);
         return;
       }
 
+      // ✅ الباك يعرف الـ user من التوكن — بنبعت date/time فقط
       const payload = {
-        role: role || "swimmer",
         status: "present",
         date: new Date().toISOString().split("T")[0],
         time: now.time,
-        [idField]: userId,
       };
       const response = await AttendanceAPI.log(payload);
 
