@@ -2,17 +2,14 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { useSignupDraft } from "@/core/SignupContext";
 import { scheduleDays, scheduleHours, type SwimmerSignupDraft } from "@/core/types";
 import { BackButton, ScreenShell, FormField, GenderSelector, SignupSubmitButton } from "./SharedUI";
-import { submitSwimmerSignupDraft } from "@/core/api";
+import { submitSwimmerSignupDraft, ScheduleAPI } from "@/core/api";
 
-// ==========================================
-// 1. SWIMMER HOME
-// ==========================================
 function SmallProfileIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden>
@@ -25,8 +22,26 @@ function SmallProfileIcon() {
 export function SwimmerHomeScreen() {
   const router = useRouter();
   const { swimmerDraft } = useSignupDraft();
+  
   const swimmerName = [swimmerDraft.firstName, swimmerDraft.lastName].filter(Boolean).join(" ");
-  const trainingRows = Math.max(swimmerDraft.trainingDays.length, swimmerDraft.trainingHours.length, 2);
+  
+  const [scheduleList, setScheduleList] = useState<any[]>([]);
+  const [assignedCoach, setAssignedCoach] = useState<string>("Not assigned yet");
+
+  useEffect(() => {
+    async function loadSchedule() {
+      try {
+        const res = await ScheduleAPI.getSchedule();
+        if (res?.data?.schedule) setScheduleList(res.data.schedule);
+        if (res?.data?.coach_name) setAssignedCoach(res.data.coach_name);
+      } catch (error) {
+        console.error("Failed to load schedule", error);
+      }
+    }
+    loadSchedule();
+  }, []);
+
+  const displayRows = scheduleList.length > 0 ? scheduleList : Array.from({ length: 2 }).map(() => ({}));
 
   return (
     <main className="min-h-screen bg-[#fffef8] text-black">
@@ -44,12 +59,19 @@ export function SwimmerHomeScreen() {
             <div className="mt-5 overflow-x-auto">
               <table className="w-full min-w-[360px] border-collapse text-center text-sm font-bold">
                 <thead><tr><th className="border border-black/50 px-3 py-3">Day</th><th className="border border-black/50 px-3 py-3">Time</th></tr></thead>
-                <tbody>{Array.from({ length: trainingRows }).map((_, index) => (<tr key={index}><td className="border border-black/50 px-3 py-3">{swimmerDraft.trainingDays[index] || "-"}</td><td className="border border-black/50 px-3 py-3">{swimmerDraft.trainingHours[index] || "-"}</td></tr>))}</tbody>
+                <tbody>
+                  {displayRows.map((row, index) => (
+                    <tr key={index}>
+                      <td className="border border-black/50 px-3 py-3">{row.day || "-"}</td>
+                      <td className="border border-black/50 px-3 py-3">{row.time || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
             </div>
           </section>
           <aside className="grid gap-5">
-            <div className="rounded-[8px] border border-[#108bad]/20 bg-white/75 p-6 shadow-[0_18px_40px_-34px_rgba(0,0,0,0.7)]"><h2 className="text-lg font-black text-[#108bad]">Your coach is ...</h2><p className="mt-4 text-sm font-bold text-black/55">Coach name will be selected by the manager.</p></div>
+            <div className="rounded-[8px] border border-[#108bad]/20 bg-white/75 p-6 shadow-[0_18px_40px_-34px_rgba(0,0,0,0.7)]"><h2 className="text-lg font-black text-[#108bad]">Your coach is ...</h2><p className="mt-4 text-sm font-bold text-black/55">{assignedCoach}</p></div>
             <div className="rounded-[8px] border border-[#108bad]/20 bg-white/75 p-6 shadow-[0_18px_40px_-34px_rgba(0,0,0,0.7)]"><h2 className="text-lg font-black text-[#108bad]">Your details</h2><p className="mt-4 text-sm font-bold text-black/55">Age: {swimmerDraft.age || "-"}</p><p className="mt-2 text-sm font-bold text-black/55">Level: {swimmerDraft.level || "-"}</p></div>
           </aside>
         </div>
@@ -62,9 +84,7 @@ export function SwimmerHomeScreen() {
   );
 }
 
-// ==========================================
-// 2. SWIMMER SCHEDULE & HOURS
-// ==========================================
+// ... باقي أجزاء الملف (SwimmerScheduleScreen, SwimmerHoursScreen, SwimmerSignupForm) تبقى كما هي بدون تغيير.
 const maxSelectedDays = 2;
 
 export function SwimmerScheduleScreen({ onBack, onNext }: { onBack: () => void; onNext: () => void; }) {
@@ -132,9 +152,6 @@ export function SwimmerHoursScreen({ onBack, onDone }: { onBack: () => void; onD
   );
 }
 
-// ==========================================
-// 3. SWIMMER SIGNUP — مربوط بالـ API
-// ==========================================
 export function SwimmerSignupHeader() {
   return (
     <header className="mb-[6.2vh] max-md:mb-[4vh]"><h1 className="text-[clamp(20px,3.6vh,34px)] font-black leading-none text-black">Hello Swimmer</h1><p className="mt-[0.7vh] text-[clamp(10px,1.75vh,16px)] font-semibold leading-none text-[#c8c8c8]">Create your account</p></header>
@@ -145,7 +162,7 @@ export function SwimmerSignupForm({ onComplete }: { onComplete?: () => void }) {
   const { setRole, swimmerDraft, updateSwimmerDraft } = useSignupDraft();
   const [apiError, setApiError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter(); // تم إضافة التوجيه هنا
+  const router = useRouter(); 
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<Pick<SwimmerSignupDraft, "firstName" | "lastName" | "gender" | "age" | "phone" | "level" | "email" | "password" | "confirmPassword">>({
     defaultValues: { firstName: swimmerDraft.firstName, lastName: swimmerDraft.lastName, gender: swimmerDraft.gender, age: swimmerDraft.age, phone: swimmerDraft.phone, level: swimmerDraft.level, email: swimmerDraft.email, password: swimmerDraft.password, confirmPassword: swimmerDraft.confirmPassword },
@@ -161,12 +178,9 @@ export function SwimmerSignupForm({ onComplete }: { onComplete?: () => void }) {
     try {
       setRole("swimmer");
       updateSwimmerDraft(values);
-      const response = await submitSwimmerSignupDraft({ ...swimmerDraft, ...values });
-      const swimmerId = response?.user?.id || response?.id;
-      if (swimmerId) updateSwimmerDraft({ id: swimmerId });
-      
+      await submitSwimmerSignupDraft({ ...swimmerDraft, ...values });
       if (onComplete) onComplete();
-      router.push("/login"); // التوجيه التلقائي لصفحة اللوجين
+      router.push("/login"); 
     } catch (error: any) {
       setApiError(error.message || "Registration failed. Please try again.");
     } finally {

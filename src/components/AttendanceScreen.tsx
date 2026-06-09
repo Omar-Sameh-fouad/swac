@@ -1,3 +1,4 @@
+// مسار الملف: src/components/AttendanceScreen.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -91,8 +92,10 @@ function getNow() {
   const now = new Date();
   const day = now.getDate().toString();
   const month = now.toLocaleString("en-US", { month: "short" });
-  const time = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-  return { day, month, time, fullDate: `${day} ${month} ${now.getFullYear()}` };
+  // صيغة الوقت للباك إند (HH:MM:SS)
+  const time = now.toLocaleTimeString("en-US", { hour12: false });
+  const displayTime = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  return { day, month, time, displayTime, fullDate: `${day} ${month} ${now.getFullYear()}` };
 }
 
 export function AttendanceScreen() {
@@ -102,11 +105,8 @@ export function AttendanceScreen() {
   const [errorMsg, setErrorMsg] = useState("");
   const now = getNow();
 
-  // ✅ إصلاح: نجيب الـ user من الـ session المحفوظة بعد الـ login
-  // مش من useSignupDraft اللي دايماً بترجع id = undefined
   const sessionUser = getSessionUser();
   const userId = sessionUser?.id;
-  const role: string = sessionUser?.role ?? "swimmer";
 
   const attendedDaysSet = new Set(rows.filter((r) => r.state === "Attend").map((r) => Number(r.day)));
   const totalDays = rows.length;
@@ -116,7 +116,6 @@ export function AttendanceScreen() {
   useEffect(() => {
     async function fetchAttendance() {
       try {
-        // ✅ إصلاح: مش بنبعت role في query params — التوكن بيعمل ذلك تلقائياً
         const data = await AttendanceAPI.get();
         if (Array.isArray(data)) {
           const mapped: AttendanceRow[] = data.map((item: any, index: number) => {
@@ -129,9 +128,20 @@ export function AttendanceScreen() {
             };
           });
           setRows(mapped);
+        } else if (data?.data && Array.isArray(data.data)) {
+           const mapped: AttendanceRow[] = data.data.map((item: any, index: number) => {
+            const date = new Date(item.date || item.created_at || Date.now());
+            return {
+              id: item.id || index + 1,
+              day: date.getDate().toString(),
+              month: date.toLocaleString("en-US", { month: "short" }),
+              state: item.status === "present" ? "Attend" : "Absent",
+            };
+          });
+          setRows(mapped);
         }
       } catch {
-        // API فاشلة — نفضل على قائمة فاضية
+        // خطأ صامت
       }
     }
     fetchAttendance();
@@ -142,23 +152,23 @@ export function AttendanceScreen() {
     setErrorMsg("");
     try {
       if (!userId) {
-        setErrorMsg("User ID not found. Please log out and log in again.");
+        setErrorMsg("User not found. Please log out and log in again.");
         setIsLogging(false);
         return;
       }
 
-      // ✅ الباك يعرف الـ user من التوكن — بنبعت date/time فقط
       const payload = {
         status: "present",
         date: new Date().toISOString().split("T")[0],
         time: now.time,
       };
+      
       const response = await AttendanceAPI.log(payload);
 
       setRows((currentRows) => [
         ...currentRows,
         {
-          id: response?.id || currentRows.length + 1,
+          id: response?.attendance_id || currentRows.length + 1,
           day: now.day,
           month: now.month,
           state: "Attend",
@@ -190,7 +200,7 @@ export function AttendanceScreen() {
             <div className="relative flex min-h-0 flex-col items-center gap-6 md:min-h-[254px] md:block">
               <div className="flex flex-col items-center gap-3 md:contents">
                 <div className="md:absolute md:left-[77px] md:top-0">
-                  <InfoBox label="Time" value={now.time} />
+                  <InfoBox label="Time" value={now.displayTime} />
                 </div>
                 <div className="md:absolute md:left-[339px] md:top-0">
                   <InfoBox label="Day" value={now.fullDate} />

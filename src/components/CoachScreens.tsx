@@ -8,11 +8,8 @@ import { useForm, useWatch } from "react-hook-form";
 import { useSignupDraft } from "@/core/SignupContext";
 import { scheduleDays, scheduleHours, type CoachSignupDraft } from "@/core/types";
 import { BackButton, ScreenShell, FormField, GenderSelector, SignupSubmitButton } from "./SharedUI";
-import { submitCoachSignupDraft } from "@/core/api";
+import { submitCoachSignupDraft, CoachAPI, ScheduleAPI, clearSession } from "@/core/api";
 
-// ==========================================
-// 1. COACH HOME & MENU
-// ==========================================
 function MenuIcon() { return <svg viewBox="0 0 24 24" className="h-[54%] w-[54%]" aria-hidden><path d="M5.5 7.5h13M5.5 12h13M5.5 16.5h13" stroke="currentColor" strokeLinecap="round" strokeWidth="2" /></svg>; }
 function ProfileIcon() { return <svg viewBox="0 0 24 24" className="h-[68%] w-[68%]" aria-hidden><circle cx="12" cy="8" r="3.1" fill="white" /><path d="M5.8 19.2c.7-3.6 3-5.4 6.2-5.4s5.5 1.8 6.2 5.4" fill="white" /></svg>; }
 function LogoutIcon() { return <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden><path d="M13 5h5v14h-5M8 8l-4 4 4 4M4 12h11" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /></svg>; }
@@ -34,7 +31,7 @@ function ClassesScheduleTable({ data = [] }: { data?: any[] }) {
       <table className="h-[355px] w-full min-w-[680px] table-fixed border-collapse text-center">
         <thead>
           <tr>
-            {["Day", "Time", "Gender", "names", "Age", "Level"].map((heading) => (
+            {["Day", "Time", "Gender", "Name", "Age", "Level"].map((heading) => (
               <th key={heading} className="h-10 border border-black/70 text-[16px] font-black">{heading}</th>
             ))}
           </tr>
@@ -45,7 +42,7 @@ function ClassesScheduleTable({ data = [] }: { data?: any[] }) {
               <td className="border border-black/70 text-sm font-bold">{row.day || ""}</td>
               <td className="border border-black/70 text-sm font-bold">{row.time || ""}</td>
               <td className="border border-black/70 text-sm font-bold">{row.gender || ""}</td>
-              <td className="border border-black/70 text-sm font-bold">{row.names || row.swimmer_name || ""}</td>
+              <td className="border border-black/70 text-sm font-bold">{row.name || ""}</td>
               <td className="border border-black/70 text-sm font-bold">{row.age || ""}</td>
               <td className="border border-black/70 text-sm font-bold">{row.level || ""}</td>
             </tr>
@@ -60,79 +57,38 @@ export function CoachHomeScreen() {
   const router = useRouter();
   const { coachDraft } = useSignupDraft();
 
-  // عملنا States منفصلة عشان تحفظ الداتا من الـ API وتقاوم الريفريش
-  const [coachName, setCoachName] = useState([coachDraft.firstName, coachDraft.lastName].filter(Boolean).join(" ") || "The Name");
-  const [teamDays, setTeamDays] = useState<string[]>(coachDraft.workingDays || []);
-  const [teamHours, setTeamHours] = useState<string[]>(coachDraft.workingHours || []);
+  const [coachName, setCoachName] = useState([coachDraft.firstName, coachDraft.lastName].filter(Boolean).join(" ") || "Coach");
+  const [teamDays, setTeamDays] = useState<string[]>([]);
+  const [teamHours, setTeamHours] = useState<string[]>([]);
   const [classesData, setClassesData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchDashboardData() {
       try {
-        const token = localStorage.getItem("authToken");
-        if (!token) {
-          setIsLoading(false);
-          return;
+        const [availRes, schedRes] = await Promise.all([
+          CoachAPI.getAvailability().catch(() => null),
+          ScheduleAPI.getSchedule().catch(() => null)
+        ]);
+
+        if (availRes?.data) {
+          const days = [...new Set(availRes.data.map((a: any) => a.working_day))];
+          const times = [...new Set(availRes.data.map((a: any) => a.working_time))];
+          setTeamDays(days as string[]);
+          setTeamHours(times as string[]);
         }
 
-        let currentCoachId = coachDraft?.id;
-
-        // 1. الكول الأول: جلب بروفايل المدرب (عشان نجيب أيام العمل والساعات والاسم بعد الريفريش)
-        try {
-          const profileRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api-academy-production-c1ab.up.railway.app/api"}/auth/profile`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`
-            }
-          });
-          
-          if (profileRes.ok) {
-            const profileData = await profileRes.json();
-            const user = profileData.user || profileData.coach || profileData.data || profileData;
-            
-            if (user) {
-              currentCoachId = user.id || user.user_id || currentCoachId;
-              if (user.first_name || user.last_name) {
-                setCoachName(`${user.first_name || ""} ${user.last_name || ""}`.trim());
-              }
-              // تحديث جدول المدرب الخاص به من الداتابيز
-              if (user.working_days) setTeamDays(user.working_days);
-              if (user.working_hours) setTeamHours(user.working_hours);
-            }
-          }
-        } catch (err) {
-          console.error("Failed to fetch profile:", err);
+        if (schedRes?.data?.classes_schedule) {
+          setClassesData(schedRes.data.classes_schedule);
         }
-
-        // 2. الكول التاني: جلب حصص المدرب (الكلاسات)
-        if (currentCoachId) {
-          const classesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api-academy-production-c1ab.up.railway.app/api"}/coach/classes/${currentCoachId}`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`
-            }
-          });
-          
-          if (classesRes.ok) {
-            const classesJson = await classesRes.json();
-            if (Array.isArray(classesJson)) setClassesData(classesJson);
-            else if (classesJson.classes) setClassesData(classesJson.classes);
-            else if (classesJson.data) setClassesData(classesJson.data);
-          }
-        }
-        
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
       } finally {
         setIsLoading(false);
       }
     }
-
     fetchDashboardData();
-  }, [coachDraft?.id]);
+  }, []);
 
   return (
     <main className="min-h-screen bg-[#fffef8] text-black">
@@ -144,13 +100,10 @@ export function CoachHomeScreen() {
           <div className="relative mt-8 h-[min(62vw,640px)] min-h-[320px] w-full max-lg:h-[52vw] max-md:h-[64vw] max-md:min-h-[260px]"><Image src="/images/swim-master-logo-clean.png" alt="Swim Master logo" fill priority sizes="(max-width: 768px) 92vw, (max-width: 1024px) 80vw, 48vw" className="object-contain object-center" /></div>
         </div>
         <div className="flex min-h-[calc(100vh-120px)] flex-col justify-center gap-[clamp(32px,5vh,46px)] pt-20 max-lg:min-h-0 max-lg:pt-0">
-          
           <section>
             <h2 className="mb-7 text-[clamp(22px,1.7vw,26px)] font-black leading-tight">Your team&apos;s schedule is ...</h2>
-            {/* الجدول الأول يقرأ من الـ State الجديدة اللي بتيجي من الـ API */}
             <CoachScheduleTable days={teamDays} hours={teamHours} />
           </section>
-
           <section>
             <h2 className="mb-5 text-[clamp(22px,1.7vw,26px)] font-black leading-tight">Your classes schedule is ...</h2>
             {isLoading ? (
@@ -159,7 +112,6 @@ export function CoachHomeScreen() {
                <ClassesScheduleTable data={classesData} />
             )}
           </section>
-
           <button type="button" onClick={() => router.push("/coach/schedule")} className="mx-auto flex min-h-[44px] w-[182px] items-center justify-center rounded-full bg-[#108bad] text-sm font-black text-white shadow-[0_10px_18px_-14px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a]">Edit</button>
         </div>
       </section>
@@ -187,7 +139,7 @@ export function CoachMenuScreen() {
               type="button"
               onClick={() => {
                 resetSignupDraft();
-                localStorage.removeItem("authToken");
+                clearSession();
                 router.push("/login");
               }}
               className="flex h-[82px] w-[282px] items-center justify-center gap-3 rounded-[18px] bg-white text-[24px] font-medium text-black shadow-[0_10px_18px_-15px_rgba(0,0,0,0.9)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_22px_-16px_rgba(0,0,0,0.9)] max-md:h-[64px] max-md:w-full max-md:max-w-[282px] max-md:text-[20px]"
@@ -201,9 +153,6 @@ export function CoachMenuScreen() {
   );
 }
 
-// ==========================================
-// 2. COACH SCHEDULE
-// ==========================================
 export function CoachScheduleScreen({ onBack, onDone }: { onBack?: () => void; onDone?: () => void; }) {
   const router = useRouter();
   const { coachDraft, setRole, updateCoachDraft } = useSignupDraft();
@@ -272,9 +221,6 @@ export function CoachHoursScreen({ onBack, onDone }: { onBack?: () => void; onDo
   );
 }
 
-// ==========================================
-// 3. COACH SIGNUP — مربوط بالـ API
-// ==========================================
 export function CoachSignupHeader() {
   return (
     <header className="mb-[8.4vh] max-md:mb-[5vh]"><h1 className="text-[clamp(20px,3.6vh,34px)] font-black leading-none text-black">Hello Coach</h1><p className="mt-[0.7vh] text-[clamp(10px,1.75vh,16px)] font-semibold leading-none text-[#c8c8c8]">Create your account</p></header>
@@ -301,10 +247,7 @@ export function CoachSignupForm({ onComplete }: { onComplete?: () => void }) {
     try {
       setRole("coach");
       updateCoachDraft(values);
-      const response = await submitCoachSignupDraft({ ...coachDraft, ...values });
-      const coachId = response?.user?.id || response?.id;
-      if (coachId) updateCoachDraft({ id: coachId });
-      
+      await submitCoachSignupDraft({ ...coachDraft, ...values });
       if (onComplete) onComplete();
       router.push("/login"); 
     } catch (error: any) {

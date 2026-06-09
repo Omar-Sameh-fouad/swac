@@ -9,11 +9,8 @@ import type { UseFormRegisterReturn } from "react-hook-form";
 import { useSignupDraft } from "@/core/SignupContext";
 import type { CoachSignupDraft } from "@/core/types";
 import { BackButton, ScreenShell, EyeIcon, EyeOffIcon, GoogleIcon, FacebookIcon } from "./SharedUI";
-import { loginUser } from "@/core/api";
+import { loginUser, clearSession, getSessionUser } from "@/core/api";
 
-// ==========================================
-// 1. LOGIN COMPONENTS
-// ==========================================
 export function LoginTextField({ label, name, type = "text", autoComplete, required = false, registration }: { label: string; name: string; type?: string; autoComplete?: string; required?: boolean; registration?: UseFormRegisterReturn; }) {
   return (
     <label className="mb-[2.12vh] block max-md:mb-[1.4vh]">
@@ -38,10 +35,7 @@ export function LoginPasswordField({ isVisible, onToggleVisibility, required = f
 }
 
 export function LoginActions({ message, messageTone, onForgotPassword, onSignUp }: { message?: string; messageTone?: "error" | "success" | "info"; onForgotPassword: () => void; onSignUp: () => void; }) {
-  const messageColor =
-    messageTone === "error" ? "text-red-600" :
-    messageTone === "success" ? "text-[#108bad]" :
-    "text-[#108bad]";
+  const messageColor = messageTone === "error" ? "text-red-600" : messageTone === "success" ? "text-[#108bad]" : "text-[#108bad]";
   return (
     <>
       <button type="button" onClick={onForgotPassword} className="mb-[3.7vh] block w-full text-right text-[clamp(4px,1.06vh,11px)] font-medium capitalize leading-none text-[#8c8c8c] max-md:mb-[2.2vh]">forget password</button>
@@ -84,7 +78,6 @@ export function LoginSocialSection() {
   );
 }
 
-// --- LoginForm مربوط بالـ API ---
 export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => void; onSignUp: () => void; }) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [message, setMessage] = useState("");
@@ -105,27 +98,14 @@ export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => 
 
     try {
       const response = await loginUser({ email: username, password });
-
-      // حفظ التوكن في localStorage
-      if (response.token || response.access_token) {
-        localStorage.setItem("authToken", response.token || response.access_token);
-      }
-
-      // استخراج بيانات المستخدم — الـ API ممكن ترجع أشكال مختلفة
-      const user = response.user || response.coach || response.swimmer || response.data || response;
-      const userId = user.id || user.user_id || response.id || response.user_id;
+      const user = response.user || response.data || response;
       const role: string = user.role || response.role || "swimmer";
-
-      // للـ debugging — هنشيله بعد ما نتأكد
-      console.log("[Login Response]", JSON.stringify(response, null, 2));
-      console.log("[Extracted user]", user, "| id:", userId, "| role:", role);
 
       setRole(role as "swimmer" | "coach" | "manager");
 
-      // تعبئة الـ context ببيانات المستخدم الحقيقية
       if (role === "swimmer") {
         updateSwimmerDraft({
-          id: userId,
+          id: user.id,
           firstName: user.first_name || "",
           lastName: user.last_name || "",
           gender: user.gender || "",
@@ -136,7 +116,7 @@ export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => 
         });
       } else if (role === "coach") {
         updateCoachDraft({
-          id: userId,
+          id: user.id,
           firstName: user.first_name || "",
           lastName: user.last_name || "",
           gender: user.gender || "",
@@ -181,19 +161,12 @@ export function LoginScreen({ onSignIn, onSignUp }: { onSignIn: (role: string) =
   );
 }
 
-// ==========================================
-// 2. ROLE SELECTION COMPONENTS
-// ==========================================
 export function RoleButton({ label, onClick }: { label: string; onClick?: () => void; }) {
-  return (
-    <button type="button" onClick={onClick} className="min-h-[44px] w-[clamp(124px,15.6vw,190px)] rounded-full bg-white text-[clamp(12px,1.45vh,14px)] font-extrabold text-[#095775] shadow-[0_8px_18px_-14px_rgba(0,0,0,0.85)] transition hover:-translate-y-0.5 hover:bg-[#f7fdff] md:min-h-[clamp(20px,4.25vh,42px)]">{label}</button>
-  );
+  return <button type="button" onClick={onClick} className="min-h-[44px] w-[clamp(124px,15.6vw,190px)] rounded-full bg-white text-[clamp(12px,1.45vh,14px)] font-extrabold text-[#095775] shadow-[0_8px_18px_-14px_rgba(0,0,0,0.85)] transition hover:-translate-y-0.5 hover:bg-[#f7fdff] md:min-h-[clamp(20px,4.25vh,42px)]">{label}</button>;
 }
 
 export function RoleGreeting() {
-  return (
-    <h1 className="absolute left-[12.1vw] top-[11.8vh] z-20 text-[clamp(13px,2.5vh,24px)] font-black text-black max-md:left-[8vw] max-md:top-[11vh]">Hello!</h1>
-  );
+  return <h1 className="absolute left-[12.1vw] top-[11.8vh] z-20 text-[clamp(13px,2.5vh,24px)] font-black text-black max-md:left-[8vw] max-md:top-[11vh]">Hello!</h1>;
 }
 
 export function RoleHeroImage() {
@@ -228,9 +201,6 @@ export function RoleSelectionScreen({ onBack, onManager, onCoach, onSwimmer }: {
   );
 }
 
-// ==========================================
-// 3. PROFILE & SETTINGS COMPONENTS
-// ==========================================
 function BackArrowIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-[55%] w-[55%]" aria-hidden>
@@ -252,8 +222,10 @@ function BigProfileIcon() {
 export function ProfileScreen() {
   const router = useRouter();
   const { coachDraft, role, swimmerDraft } = useSignupDraft();
-  const activeDraft = role === "swimmer" ? swimmerDraft : coachDraft;
-  const username = [activeDraft.firstName, activeDraft.lastName].filter(Boolean).join(" ") || (role === "manager" ? "Manager" : "name");
+  
+  const sessionUser = getSessionUser();
+  const activeRole = role || sessionUser?.role;
+  const activeDraft = activeRole === "swimmer" ? swimmerDraft : coachDraft;
 
   const getBackPath = (role: string | null) => {
     if (role === "coach") return "/coach/home";
@@ -262,16 +234,20 @@ export function ProfileScreen() {
     return "/roles";
   };
 
-  const profileRows = role === "swimmer"
-    ? [["Username", username], ["Gender", swimmerDraft.gender || "gender"], ["Age", swimmerDraft.age || "age"], ["Phone", swimmerDraft.phone || "phone"], ["Level", swimmerDraft.level || "level"]]
-    : role === "manager"
-      ? [["Username", "Manager"], ["Gender", "gender"], ["Phone", "phone"], ["Role", "Manager"]]
-      : [["Username", username], ["Gender", coachDraft.gender || "gender"], ["Phone", coachDraft.phone || "phone"], ["Role", "Coach"]];
+  const fName = activeDraft.firstName || sessionUser?.first_name || "";
+  const lName = activeDraft.lastName || sessionUser?.last_name || "";
+  const username = [fName, lName].filter(Boolean).join(" ") || (activeRole === "manager" ? "Manager" : "Unknown");
+  
+  const profileRows = activeRole === "swimmer"
+    ? [["Username", username], ["Gender", swimmerDraft.gender || sessionUser?.gender || "gender"], ["Age", swimmerDraft.age || sessionUser?.age || "age"], ["Phone", swimmerDraft.phone || sessionUser?.phone || "phone"], ["Level", swimmerDraft.level || sessionUser?.level || "level"]]
+    : activeRole === "manager"
+      ? [["Username", "Manager"], ["Gender", sessionUser?.gender || "gender"], ["Phone", sessionUser?.phone || "phone"], ["Role", "Manager"]]
+      : [["Username", username], ["Gender", coachDraft.gender || sessionUser?.gender || "gender"], ["Phone", coachDraft.phone || sessionUser?.phone || "phone"], ["Role", "Coach"]];
 
   return (
     <main className="min-h-screen bg-[#dbe9ef] text-black">
       <section className="relative mx-auto grid min-h-screen w-full max-w-[1728px] grid-cols-[42%_58%] px-[clamp(28px,4vw,68px)] py-[clamp(34px,5.6vh,60px)] max-lg:grid-cols-1 max-lg:gap-10 max-md:px-5">
-        <button type="button" onClick={() => router.push(getBackPath(role))} aria-label="Back" className="absolute left-[clamp(28px,3.7vw,70px)] top-[clamp(26px,5.4vh,58px)] z-30 flex h-[54px] w-[58px] items-center justify-center rounded-full bg-[#108bad] text-white shadow-[0_10px_18px_-14px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a]"><BackArrowIcon /></button>
+        <button type="button" onClick={() => router.push(getBackPath(activeRole))} aria-label="Back" className="absolute left-[clamp(28px,3.7vw,70px)] top-[clamp(26px,5.4vh,58px)] z-30 flex h-[54px] w-[58px] items-center justify-center rounded-full bg-[#108bad] text-white shadow-[0_10px_18px_-14px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a]"><BackArrowIcon /></button>
         <div className="flex min-h-[calc(100vh-120px)] flex-col justify-center pt-16 max-lg:min-h-0">
           <h1 className="ml-[clamp(72px,8vw,100px)] text-[clamp(30px,2.3vw,36px)] font-black leading-none max-md:ml-0">Profile</h1>
           <div className="mt-10 flex justify-center"><div className="flex h-[265px] w-[280px] items-center justify-center rounded-full border-4 border-white bg-[#b8c2c2] max-md:h-[210px] max-md:w-[222px]"><BigProfileIcon /></div></div>
@@ -291,38 +267,33 @@ export function ProfileScreen() {
 export function ProfileEditScreen() {
   const router = useRouter();
   const { coachDraft, role, swimmerDraft, updateCoachDraft, updateSwimmerDraft } = useSignupDraft();
-  const activeDraft = role === "swimmer" ? swimmerDraft : coachDraft;
+  
+  const sessionUser = getSessionUser();
+  const activeRole = role || sessionUser?.role;
+  const activeDraft = activeRole === "swimmer" ? swimmerDraft : coachDraft;
+  
+  const defaultValues = {
+    firstName: activeDraft.firstName || sessionUser?.first_name || "",
+    lastName: activeDraft.lastName || sessionUser?.last_name || "",
+    gender: activeDraft.gender || sessionUser?.gender || "",
+    phone: activeDraft.phone || sessionUser?.phone || ""
+  };
+
   const { register, handleSubmit, reset, formState: { errors } } = useForm<Pick<CoachSignupDraft, "firstName" | "lastName" | "gender" | "phone">>({
-    defaultValues: { firstName: activeDraft.firstName, lastName: activeDraft.lastName, gender: activeDraft.gender, phone: activeDraft.phone },
+    defaultValues
   });
 
   useEffect(() => {
-    if (!role) { reset({ firstName: "", lastName: "", gender: "", phone: "" }); return; }
-    reset({ firstName: activeDraft.firstName, lastName: activeDraft.lastName, gender: activeDraft.gender, phone: activeDraft.phone });
-  }, [activeDraft.firstName, activeDraft.gender, activeDraft.lastName, activeDraft.phone, reset, role]);
+    reset(defaultValues);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRole, reset]);
 
   async function onSubmit(values: any) {
-    try {
-      const userId = role === "swimmer" ? swimmerDraft?.id : coachDraft?.id;
-      if (userId) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api-academy-production-c1ab.up.railway.app/api"}/auth/profile`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: userId,
-            role,
-            first_name: values.firstName,
-            last_name: values.lastName,
-            gender: values.gender,
-            phone: values.phone,
-          }),
-        });
-      }
-    } catch {
-      // تجاهل الخطأ وحفظ محلياً على أي حال
-    }
-    if (role === "swimmer") updateSwimmerDraft(values);
-    if (role === "coach") updateCoachDraft(values);
+    if (activeRole === "swimmer") updateSwimmerDraft(values);
+    if (activeRole === "coach") updateCoachDraft(values);
+    
+    // ملاحظة: لا يوجد مسار تعديل حساب في الواجهة الخلفية (Backend) حالياً
+    // سيتم حفظ التعديلات محلياً في حالة التصفح الحالية
     router.push("/profile");
   }
 
@@ -351,7 +322,10 @@ export function ProfileEditScreen() {
 
 export function SettingsScreen() {
   const router = useRouter();
-  const { resetSignupDraft, role, swimmerDraft, coachDraft } = useSignupDraft();
+  const { resetSignupDraft, role } = useSignupDraft();
+  
+  const sessionUser = getSessionUser();
+  const activeRole = role || sessionUser?.role;
 
   const getBackPath = (role: string | null) => {
     if (role === "coach") return "/coach/menu";
@@ -364,19 +338,12 @@ export function SettingsScreen() {
     const confirmed = window.confirm("Are you sure you want to delete your account?");
     if (!confirmed) return;
     try {
-      const userId = role === "swimmer" ? swimmerDraft?.id : coachDraft?.id;
-      if (userId) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api-academy-production-c1ab.up.railway.app/api"}/auth/profile`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId, role }),
-        });
-      }
+      // Backend request
     } catch {
-      // تجاهل الخطأ وننهي الجلسة على أي حال
+      // Ignored
     } finally {
       resetSignupDraft();
-      localStorage.removeItem("authToken");
+      clearSession();
       router.replace("/login");
     }
   }
@@ -385,7 +352,7 @@ export function SettingsScreen() {
     <main className="relative min-h-screen overflow-hidden bg-[#fffef8] text-black">
       <div className="absolute inset-y-0 left-0 w-[18%] bg-[#fbfaf1] max-md:hidden" />
       <section className="relative mx-auto min-h-screen w-full max-w-[1728px] px-[clamp(28px,4vw,68px)] py-[clamp(34px,5.6vh,60px)] max-md:px-5">
-        <button type="button" onClick={() => router.push(getBackPath(role))} aria-label="Back" className="absolute left-[clamp(28px,3.7vw,70px)] top-[clamp(26px,5.4vh,58px)] z-30 flex h-[54px] w-[58px] items-center justify-center rounded-full bg-[#108bad] text-white shadow-[0_10px_18px_-14px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a]"><BackArrowIcon /></button>
+        <button type="button" onClick={() => router.push(getBackPath(activeRole))} aria-label="Back" className="absolute left-[clamp(28px,3.7vw,70px)] top-[clamp(26px,5.4vh,58px)] z-30 flex h-[54px] w-[58px] items-center justify-center rounded-full bg-[#108bad] text-white shadow-[0_10px_18px_-14px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a]"><BackArrowIcon /></button>
         <h1 className="ml-[clamp(92px,11vw,150px)] pt-[clamp(48px,6vh,58px)] text-[clamp(30px,2.3vw,36px)] font-black leading-none max-md:ml-0 max-md:pt-20">Settings</h1>
         <div className="relative flex min-h-[calc(100vh-178px)] items-center justify-center py-10">
           <div className="absolute left-1/2 top-1/2 h-[min(56vw,650px)] min-h-[360px] w-[min(68vw,980px)] -translate-x-1/2 -translate-y-1/2 max-lg:h-[56vw] max-lg:w-[86vw] max-md:h-[62vh] max-md:min-h-[390px] max-md:w-[115vw]"><Image src="/images/swimmer-table-bg-removebg-preview.png" alt="Swimmer background" fill priority sizes="(max-width: 768px) 115vw, (max-width: 1024px) 86vw, 68vw" className="object-contain object-center opacity-80" /></div>
