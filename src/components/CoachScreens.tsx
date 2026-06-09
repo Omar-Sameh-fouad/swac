@@ -1,4 +1,4 @@
-
+// مسار الملف: src/components/CoachScreens.tsx
 "use client";
 
 import Image from "next/image";
@@ -57,6 +57,7 @@ export function CoachHomeScreen() {
   const router = useRouter();
   const { coachDraft } = useSignupDraft();
 
+  // ✅ حل اختفاء الاسم: الاعتماد على الثوابت والداتا الحية بدلاً من useState
   const sessionUser = typeof window !== "undefined" ? getSessionUser() : null;
   const fName = coachDraft.firstName || sessionUser?.first_name || "";
   const lName = coachDraft.lastName || sessionUser?.last_name || "";
@@ -200,23 +201,17 @@ export function CoachHoursScreen({ onBack, onDone }: { onBack?: () => void; onDo
   function handleBack() { if (onBack) onBack(); else router.back(); }
   function handleDone() { if (onDone) onDone(); else router.push("/coach/home"); }
 
+  // ✅ يتم إرسال المواعيد للباك إند فعلياً بعد اختيار الساعات
   async function onSubmit(values: any) {
     setIsSaving(true);
     try {
       setRole("coach");
-      
-      // حفظ الساعات في الـ Context
       updateCoachDraft({ workingHours: values.workingHours });
-
-      // تجميع كل بيانات المدرب اللي اتسجلت في الخطوات السابقة + الخطوة الحالية
-      const fullPayload = {
-        ...coachDraft,
-        workingHours: values.workingHours,
-        role: "coach" as const,
-      };
-
-      // إرسال البيانات للـ API (الدالة دي بتكريت الحساب، وبتعمل لوجن عشان تاخد التوكن، وبتبعت الجدول في خطوة واحدة)
-      await submitCoachSignupDraft(fullPayload);
+      
+      await CoachAPI.setup({
+        days: coachDraft.workingDays,
+        times: values.workingHours,
+      });
 
       handleDone();
     } catch (err: any) {
@@ -275,18 +270,27 @@ export function CoachSignupForm({ onComplete }: { onComplete?: () => void }) {
   const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
   const passwordMismatch = confirmPassword.length > 0 && password !== confirmPassword;
 
+  // ✅ تم التعديل: إنشاء الحساب، أخذ التوكن، ثم توجيهه لشاشة الجداول بدلاً من اللوجين
   async function onSubmit(values: any) {
     setApiError("");
     setIsLoading(true);
     try {
       setRole("coach");
-      
-      // حفظ البيانات الأساسية في الـ Context فقط وتوجيهه لخطوة اختيار الأيام
       updateCoachDraft(values);
+      
+      await submitCoachSignupDraft({ 
+        ...coachDraft, 
+        ...values, 
+        workingDays: [], 
+        workingHours: [], 
+        role: "coach" 
+      } as any);
+      
+      if (onComplete) onComplete();
       router.push("/coach/schedule"); 
       
     } catch (error: any) {
-      setApiError(error.message || "Something went wrong. Please try again.");
+      setApiError(error.message || "Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
