@@ -4,7 +4,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { BackButton } from "./SharedUI";
-import { BookingsAPI, CoachAPI } from "@/core/api";
+import { BookingsAPI, CoachAPI, getSessionUser } from "@/core/api";
 import { useSignupDraft } from "@/core/SignupContext";
 
 const offers = [
@@ -75,7 +75,6 @@ export function PaymentScreen() {
   const [messageTone, setMessageTone] = useState<"success" | "error">("success");
   const [isLoading, setIsLoading] = useState(false);
 
-  // بيانات المدربين والأيام والأوقات المتاحة
   const [coaches, setCoaches] = useState<any[]>([]);
   const [availableDays, setAvailableDays] = useState<string[]>([]);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
@@ -84,7 +83,6 @@ export function PaymentScreen() {
   const [selectedTime, setSelectedTime] = useState("");
   const [isFetchingOptions, setIsFetchingOptions] = useState(true);
 
-  // جلب المدربين والأيام والأوقات المتاحة من الـ API
   useEffect(() => {
     async function loadOptions() {
       setIsFetchingOptions(true);
@@ -98,7 +96,7 @@ export function PaymentScreen() {
         setAvailableDays(Array.isArray(daysList) ? daysList : daysList?.days ?? []);
         setAvailableTimes(Array.isArray(timesList) ? timesList : timesList?.times ?? []);
       } catch {
-        // تجاهل الخطأ والبيانات هتبقى فاضية
+        // تجاهل
       } finally {
         setIsFetchingOptions(false);
       }
@@ -118,13 +116,25 @@ export function PaymentScreen() {
     setMessage("");
 
     try {
+      // ✅ إصلاح: fallback لـ getSessionUser() لضمان وجود swimmer_id دايمًا
+      const sessionUser = getSessionUser();
+      const swimmerId = swimmerDraft?.id ?? sessionUser?.id;
+
+      if (!swimmerId) {
+        setMessage("Could not find your account. Please log out and log in again.");
+        setMessageTone("error");
+        setIsLoading(false);
+        return;
+      }
+
       await BookingsAPI.create({
         role: role || "swimmer",
-        swimmer_id: swimmerDraft?.id,
+        swimmer_id: swimmerId,
         coach_id: Number(selectedCoach),
         day: selectedDay,
         time: selectedTime,
       });
+
       setMessage("Booking confirmed successfully!");
       setMessageTone("success");
       if (typeof window !== "undefined") sessionStorage.removeItem("selectedPlan");
