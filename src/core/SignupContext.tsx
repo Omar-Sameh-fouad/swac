@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import type { CoachSignupDraft, SignupRole, SwimmerSignupDraft } from "./types";
+import { getSessionUser } from "./api"; // ✅ استيراد دالة جلب بيانات المستخدم
 
 type SignupDraftState = {
   role: SignupRole | null;
@@ -93,9 +94,68 @@ export function SignupProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const storedDraft = window.sessionStorage.getItem(storageKey);
+      const sessionUser = getSessionUser(); // ✅ جلب المستخدم المحفوظ في الجلسة
 
       if (storedDraft) {
-        setDraft(normalizeStoredDraft(JSON.parse(storedDraft)));
+        // لو في مسودة محفوظة في الجلسة الحالية، نستخدمها
+        const parsedDraft = normalizeStoredDraft(JSON.parse(storedDraft));
+        
+        // دمج بيانات المستخدم المسجل لو المسودة فاضية (عشان الريفريش)
+        if (sessionUser && !parsedDraft.coachDraft.id && !parsedDraft.swimmerDraft.id) {
+            const role = sessionUser.role as SignupRole;
+            parsedDraft.role = role;
+            if (role === "coach") {
+                parsedDraft.coachDraft = {
+                    ...parsedDraft.coachDraft,
+                    id: sessionUser.id,
+                    firstName: sessionUser.first_name || "",
+                    lastName: sessionUser.last_name || "",
+                    email: sessionUser.email || "",
+                    phone: sessionUser.phone || "",
+                    gender: sessionUser.gender || "",
+                };
+            } else if (role === "swimmer") {
+                parsedDraft.swimmerDraft = {
+                    ...parsedDraft.swimmerDraft,
+                    id: sessionUser.id,
+                    firstName: sessionUser.first_name || "",
+                    lastName: sessionUser.last_name || "",
+                    email: sessionUser.email || "",
+                    phone: sessionUser.phone || "",
+                    age: sessionUser.age?.toString() || "",
+                    level: sessionUser.level || "",
+                    gender: sessionUser.gender || "",
+                };
+            }
+        }
+        setDraft(parsedDraft);
+
+      } else if (sessionUser) {
+        // ✅ لو مفيش مسودة خالص بس اليوزر عامل لوجين، نملأ الـ Context عشان الريفريش
+        const role = sessionUser.role as SignupRole;
+        setDraft({
+          role,
+          coachDraft: role === "coach" ? {
+            ...emptyCoachDraft,
+            id: sessionUser.id,
+            firstName: sessionUser.first_name || "",
+            lastName: sessionUser.last_name || "",
+            email: sessionUser.email || "",
+            phone: sessionUser.phone || "",
+            gender: sessionUser.gender || "",
+          } : emptyCoachDraft,
+          swimmerDraft: role === "swimmer" ? {
+            ...emptySwimmerDraft,
+            id: sessionUser.id,
+            firstName: sessionUser.first_name || "",
+            lastName: sessionUser.last_name || "",
+            email: sessionUser.email || "",
+            phone: sessionUser.phone || "",
+            age: sessionUser.age?.toString() || "",
+            level: sessionUser.level || "",
+            gender: sessionUser.gender || "",
+          } : emptySwimmerDraft,
+        });
       }
     } catch {
       setDraft(initialState);
