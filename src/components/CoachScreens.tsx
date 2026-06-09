@@ -1,4 +1,4 @@
-// مسار الملف: src/components/CoachScreens.tsx
+\// مسار الملف: src/components/CoachScreens.tsx
 "use client";
 
 import Image from "next/image";
@@ -57,7 +57,6 @@ export function CoachHomeScreen() {
   const router = useRouter();
   const { coachDraft } = useSignupDraft();
 
-  // ✅ حل اختفاء الاسم: الاعتماد على الثوابت والداتا الحية بدلاً من useState
   const sessionUser = typeof window !== "undefined" ? getSessionUser() : null;
   const fName = coachDraft.firstName || sessionUser?.first_name || "";
   const lName = coachDraft.lastName || sessionUser?.last_name || "";
@@ -201,22 +200,28 @@ export function CoachHoursScreen({ onBack, onDone }: { onBack?: () => void; onDo
   function handleBack() { if (onBack) onBack(); else router.back(); }
   function handleDone() { if (onDone) onDone(); else router.push("/coach/home"); }
 
-  // ✅ حل مشكلة المواعيد التي لا تظهر: يتم الآن إرسالها للباك إند فعلياً
   async function onSubmit(values: any) {
     setIsSaving(true);
     try {
       setRole("coach");
-      updateCoachDraft({ workingHours: values.workingHours });
       
-      await CoachAPI.setup({
-        days: coachDraft.workingDays,
-        times: values.workingHours,
-      });
+      // حفظ الساعات في الـ Context
+      updateCoachDraft({ workingHours: values.workingHours });
+
+      // تجميع كل بيانات المدرب اللي اتسجلت في الخطوات السابقة + الخطوة الحالية
+      const fullPayload = {
+        ...coachDraft,
+        workingHours: values.workingHours,
+        role: "coach" as const,
+      };
+
+      // إرسال البيانات للـ API (الدالة دي بتكريت الحساب، وبتعمل لوجن عشان تاخد التوكن، وبتبعت الجدول في خطوة واحدة)
+      await submitCoachSignupDraft(fullPayload);
 
       handleDone();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save schedule:", err);
-      alert("Failed to save schedule to server. Please try again.");
+      alert(err.message || "Failed to save schedule to server. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -275,12 +280,13 @@ export function CoachSignupForm({ onComplete }: { onComplete?: () => void }) {
     setIsLoading(true);
     try {
       setRole("coach");
+      
+      // حفظ البيانات الأساسية في الـ Context فقط وتوجيهه لخطوة اختيار الأيام
       updateCoachDraft(values);
-      await submitCoachSignupDraft({ ...coachDraft, ...values });
-      if (onComplete) onComplete();
-      router.push("/login"); 
+      router.push("/coach/schedule"); 
+      
     } catch (error: any) {
-      setApiError(error.message || "Registration failed. Please try again.");
+      setApiError(error.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -301,7 +307,7 @@ export function CoachSignupForm({ onComplete }: { onComplete?: () => void }) {
         <FormField label="Confirm password" name="confirmPassword" type="password" autoComplete="new-password" registration={register("confirmPassword", { required: "Please confirm your password.", validate: (value) => value === password || "Passwords do not match." })} message={errors.confirmPassword?.message ?? (passwordMismatch ? "Passwords do not match" : passwordsMatch ? "Passwords match" : undefined)} messageTone={errors.confirmPassword ? "error" : (passwordMismatch ? "error" : passwordsMatch ? "success" : undefined)} />
       </div>
       {apiError && <p className="mt-3 text-center text-[clamp(10px,1.25vh,12px)] font-bold text-[#c0392b]">{apiError}</p>}
-      <SignupSubmitButton label={isLoading ? "Creating account..." : "continue"} />
+      <SignupSubmitButton label={isLoading ? "Processing..." : "continue"} />
     </form>
   );
 }
