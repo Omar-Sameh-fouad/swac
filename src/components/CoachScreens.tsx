@@ -1,4 +1,4 @@
-\// مسار الملف: src/components/CoachScreens.tsx
+
 "use client";
 
 import Image from "next/image";
