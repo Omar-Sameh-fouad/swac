@@ -2,34 +2,89 @@
 "use client";
 
 import Image from "next/image";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { BackButton } from "./SharedUI";
-import { getSessionUser } from "@/core/api";
+import { getSessionUser, ClassesAPI, TeamsAPI, CoachAPI } from "@/core/api";
 
 // ==========================================
 // MANAGER HOME & TABLES
 // ==========================================
 const days = ["Day", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
-const tableRows = Array.from({ length: 5 }, (_, index) => index);
+const dayMap: Record<string, string> = {
+  Saturday: "Sat", Sunday: "Sun", Monday: "Mon", Tuesday: "Tue",
+  Wednesday: "Wed", Thursday: "Thu", Friday: "Fri",
+  Sat: "Sat", Sun: "Sun", Mon: "Mon", Tue: "Tue",
+  Wed: "Wed", Thu: "Thu", Fri: "Fri",
+};
 
 function MenuIcon() { return <svg viewBox="0 0 24 24" className="h-[52%] w-[52%]" aria-hidden><path d="M6 8h12M6 12h12M6 16h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>; }
 function ProfileIcon() { return <svg viewBox="0 0 24 24" className="h-[68%] w-[68%]" aria-hidden><circle cx="12" cy="8.4" r="3.2" fill="white" /><path d="M5.8 19.2c.7-3.2 3-5 6.2-5s5.5 1.8 6.2 5" fill="white" /></svg>; }
 
-function ScheduleTable({ title, rowLabel }: { title: string; rowLabel: "Class Level" | "Team name" }) {
+// ✅ جديد: جدول بيعرض داتا حقيقية من الـ API
+function LiveScheduleTable({
+  title,
+  rows,
+  isLoading,
+  labelKey,
+}: {
+  title: string;
+  rows: any[];
+  isLoading: boolean;
+  labelKey: "class_level" | "team_name";
+}) {
+  // بنحول الـ rows لـ map: { day -> [{ label, time, coachName }] }
+  const cellMap: Record<string, { label: string; time: string; coachName: string }[]> = {};
+  rows.forEach((row) => {
+    const dayShort = dayMap[row.day] ?? row.day;
+    if (!cellMap[dayShort]) cellMap[dayShort] = [];
+    cellMap[dayShort].push({
+      label: row[labelKey] || "-",
+      time: row.time || "-",
+      coachName: row.coach_name || row.coach_id || "-",
+    });
+  });
+
+  const maxRows = Math.max(5, ...Object.values(cellMap).map((v) => v.length));
+
   return (
     <section>
       <h2 className="mb-[2px] text-[clamp(10px,1.05vw,13px)] font-black leading-none text-[#108bad]">{title}</h2>
       <div className="w-full overflow-x-auto">
         <table className="h-[clamp(205px,27vh,250px)] w-full min-w-[680px] table-fixed border-collapse bg-transparent text-center">
-          <colgroup><col className="w-[13.4%]" />{days.slice(1).map((day) => (<col key={day} />))}</colgroup>
-          <thead><tr>{days.map((day) => (<th key={day} className="h-[25px] border border-[#9d9d9d] bg-white/35 text-[clamp(6px,0.72vw,10px)] font-black">{day}</th>))}</tr></thead>
+          <colgroup><col className="w-[13.4%]" />{days.slice(1).map((day) => <col key={day} />)}</colgroup>
+          <thead>
+            <tr>{days.map((day) => <th key={day} className="h-[25px] border border-[#9d9d9d] bg-white/35 text-[clamp(6px,0.72vw,10px)] font-black">{day}</th>)}</tr>
+          </thead>
           <tbody>
-            {tableRows.map((row) => (
-              <tr key={row}>
-                <td className="border border-[#9d9d9d] bg-white/20 px-[clamp(5px,1vw,13px)] text-left align-middle text-[clamp(5px,0.68vw,9px)] font-bold leading-[1.55]"><span className="block">{rowLabel}</span><span className="block">time</span><span className="block">coach name</span></td>
-                {days.slice(1).map((day) => (<td key={`${title}-${day}-${row}`} className="border border-[#9d9d9d] bg-transparent" />))}
+            {isLoading ? (
+              <tr>
+                <td colSpan={8} className="border border-[#9d9d9d] py-6 text-[clamp(8px,0.9vw,11px)] font-bold text-black/40">
+                  Loading...
+                </td>
               </tr>
-            ))}
+            ) : (
+              Array.from({ length: maxRows }).map((_, rowIndex) => (
+                <tr key={rowIndex}>
+                  {/* عمود الـ Day label (فاضي) */}
+                  <td className="border border-[#9d9d9d] bg-white/20" />
+                  {days.slice(1).map((day) => {
+                    const cell = cellMap[day]?.[rowIndex];
+                    return (
+                      <td key={`${day}-${rowIndex}`} className="border border-[#9d9d9d] bg-transparent px-[clamp(3px,0.5vw,7px)] text-left align-top text-[clamp(5px,0.65vw,9px)] font-bold leading-[1.55]">
+                        {cell ? (
+                          <>
+                            <span className="block">{cell.label}</span>
+                            <span className="block text-black/50">{cell.time}</span>
+                            <span className="block text-black/40">{cell.coachName}</span>
+                          </>
+                        ) : null}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -37,35 +92,58 @@ function ScheduleTable({ title, rowLabel }: { title: string; rowLabel: "Class Le
   );
 }
 
-// ✅ إصلاح: تحويل الـ props-based callbacks إلى Next.js router + جلب داتا المانجر
+// ✅ إصلاح: جلب داتا Classes وTeams من الـ API
 export function ManagerHomeScreen() {
   const router = useRouter();
 
-  // ✅ جلب داتا المانجر من الـ localStorage
   const sessionUser = typeof window !== "undefined" ? getSessionUser() : null;
   const managerName = [sessionUser?.first_name, sessionUser?.last_name].filter(Boolean).join(" ") || "Manager";
 
+  const [classesData, setClassesData] = useState<any[]>([]);
+  const [teamsData, setTeamsData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      setIsLoading(true);
+      try {
+        // ✅ جلب الكوتشيز عشان نربط الاسم بالـ coach_id
+        const [classesRes, teamsRes, coachesRes] = await Promise.all([
+          ClassesAPI.getAll().catch(() => null),
+          TeamsAPI.getAll().catch(() => null),
+          CoachAPI.getList().catch(() => []),
+        ]);
+
+        // بنبني map من coach_id → اسم المدرب
+        const coachList = Array.isArray(coachesRes) ? coachesRes : coachesRes?.coaches ?? [];
+        const coachMap: Record<number, string> = {};
+        coachList.forEach((c: any) => {
+          coachMap[c.id] = [c.first_name, c.last_name].filter(Boolean).join(" ");
+        });
+
+        // إضافة coach_name للكلاسيز
+        const classes = (Array.isArray(classesRes) ? classesRes : classesRes?.data ?? classesRes?.classes ?? [])
+          .map((c: any) => ({ ...c, coach_name: coachMap[c.coach_id] || c.coach_id }));
+
+        // إضافة coach_name للتيمز
+        const teams = (Array.isArray(teamsRes) ? teamsRes : teamsRes?.data ?? teamsRes?.teams ?? [])
+          .map((t: any) => ({ ...t, coach_name: coachMap[t.coach_id] || t.coach_id }));
+
+        setClassesData(classes);
+        setTeamsData(teams);
+      } catch {
+        // صامت
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#fffef8] text-black">
-      {/* زرار المينيو — بيروح لصفحة /manager/menu لو موجودة، أو /roles للخروج */}
-      <button
-        type="button"
-        onClick={() => router.push("/roles")}
-        aria-label="Open menu"
-        className="absolute left-[clamp(20px,4vw,48px)] top-[clamp(26px,5vh,45px)] z-30 flex h-[clamp(36px,4.8vw,48px)] w-[clamp(36px,4.8vw,48px)] items-center justify-center rounded-full bg-[#108bad] text-white shadow-[0_9px_18px_-14px_rgba(0,0,0,0.8)] transition hover:bg-[#0d7c9a]"
-      >
-        <MenuIcon />
-      </button>
-
-      {/* زرار البروفايل */}
-      <button
-        type="button"
-        onClick={() => router.push("/profile")}
-        aria-label="Manager profile"
-        className="absolute right-[clamp(20px,4.5vw,54px)] top-[clamp(27px,5vh,45px)] z-30 flex h-[clamp(31px,4.2vw,43px)] w-[clamp(31px,4.2vw,43px)] items-center justify-center rounded-full bg-[#b8c2c2] text-white"
-      >
-        <ProfileIcon />
-      </button>
+      <button type="button" onClick={() => router.push("/roles")} aria-label="Open menu" className="absolute left-[clamp(20px,4vw,48px)] top-[clamp(26px,5vh,45px)] z-30 flex h-[clamp(36px,4.8vw,48px)] w-[clamp(36px,4.8vw,48px)] items-center justify-center rounded-full bg-[#108bad] text-white shadow-[0_9px_18px_-14px_rgba(0,0,0,0.8)] transition hover:bg-[#0d7c9a]"><MenuIcon /></button>
+      <button type="button" onClick={() => router.push("/profile")} aria-label="Manager profile" className="absolute right-[clamp(20px,4.5vw,54px)] top-[clamp(27px,5vh,45px)] z-30 flex h-[clamp(31px,4.2vw,43px)] w-[clamp(31px,4.2vw,43px)] items-center justify-center rounded-full bg-[#b8c2c2] text-white"><ProfileIcon /></button>
 
       <section className="mx-auto min-h-screen w-full px-[clamp(12px,6.8vw,78px)] py-[clamp(52px,8.2vh,84px)]">
         <header className="mb-[clamp(16px,2.6vh,25px)] pt-[clamp(32px,5vh,48px)]">
@@ -75,37 +153,17 @@ export function ManagerHomeScreen() {
         </header>
 
         <div className="relative">
-          <Image
-            src="/images/swim-master-logo-clean.png"
-            alt=""
-            aria-hidden="true"
-            width={975}
-            height={963}
-            sizes="(max-width: 768px) 80vw, 610px"
-            className="pointer-events-none absolute left-1/2 top-[34%] z-0 h-auto w-[clamp(360px,50vw,610px)] -translate-x-1/2 -translate-y-1/2 object-contain opacity-55 mix-blend-multiply brightness-125 contrast-80 saturate-110 hue-rotate-[10deg]"
-          />
+          <Image src="/images/swim-master-logo-clean.png" alt="" aria-hidden="true" width={975} height={963} sizes="(max-width: 768px) 80vw, 610px" className="pointer-events-none absolute left-1/2 top-[34%] z-0 h-auto w-[clamp(360px,50vw,610px)] -translate-x-1/2 -translate-y-1/2 object-contain opacity-55 mix-blend-multiply brightness-125 contrast-80 saturate-110 hue-rotate-[10deg]" />
           <div className="relative z-10">
-            <ScheduleTable title="The Classes Table" rowLabel="Class Level" />
-            {/* ✅ إصلاح: router.push لصفحة تعديل الكلاسيز */}
-            <button
-              type="button"
-              onClick={() => router.push("/manager/classes")}
-              className="mx-auto mt-[clamp(14px,2.7vh,24px)] flex min-h-[44px] w-[clamp(106px,12vw,130px)] items-center justify-center rounded-full bg-[#108bad] text-[clamp(12px,0.82vw,13px)] font-black text-white shadow-[0_8px_15px_-12px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a] md:min-h-[clamp(25px,3.2vh,32px)]"
-            >
-              Edit
-            </button>
+            {/* ✅ جدول الكلاسيز بداتا حقيقية */}
+            <LiveScheduleTable title="The Classes Table" rows={classesData} isLoading={isLoading} labelKey="class_level" />
+            <button type="button" onClick={() => router.push("/manager/classes")} className="mx-auto mt-[clamp(14px,2.7vh,24px)] flex min-h-[44px] w-[clamp(106px,12vw,130px)] items-center justify-center rounded-full bg-[#108bad] text-[clamp(12px,0.82vw,13px)] font-black text-white shadow-[0_8px_15px_-12px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a] md:min-h-[clamp(25px,3.2vh,32px)]">Edit</button>
 
             <div className="mt-[clamp(22px,4vh,38px)]">
-              <ScheduleTable title="The Teams Table" rowLabel="Team name" />
+              {/* ✅ جدول التيمز بداتا حقيقية */}
+              <LiveScheduleTable title="The Teams Table" rows={teamsData} isLoading={isLoading} labelKey="team_name" />
             </div>
-            {/* ✅ إصلاح: router.push لصفحة تعديل التيمز */}
-            <button
-              type="button"
-              onClick={() => router.push("/manager/teams")}
-              className="mx-auto mt-[clamp(25px,4vh,42px)] flex min-h-[44px] w-[clamp(108px,12vw,132px)] items-center justify-center rounded-full bg-[#108bad] text-[clamp(12px,0.82vw,13px)] font-black text-white shadow-[0_8px_15px_-12px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a] md:min-h-[clamp(28px,3.6vh,34px)]"
-            >
-              Edit
-            </button>
+            <button type="button" onClick={() => router.push("/manager/teams")} className="mx-auto mt-[clamp(25px,4vh,42px)] flex min-h-[44px] w-[clamp(108px,12vw,132px)] items-center justify-center rounded-full bg-[#108bad] text-[clamp(12px,0.82vw,13px)] font-black text-white shadow-[0_8px_15px_-12px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a] md:min-h-[clamp(28px,3.6vh,34px)]">Edit</button>
           </div>
         </div>
       </section>
