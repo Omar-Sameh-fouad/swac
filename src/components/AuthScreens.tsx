@@ -98,8 +98,15 @@ export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => 
 
     try {
       const response = await loginUser({ email: username, password });
+
+      // ✅ إصلاح: البحث عن الـ role في كل الأماكن الممكنة في الـ response
       const user = response.user || response.data || response;
-      const role: string = user.role || response.role || "swimmer";
+      const role: string =
+        response.role ||
+        response.user?.role ||
+        response.data?.role ||
+        user.role ||
+        "swimmer";
 
       setRole(role as "swimmer" | "coach" | "manager");
 
@@ -107,6 +114,10 @@ export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => 
         updateSwimmerDraft({ id: user.id, firstName: user.first_name || "", lastName: user.last_name || "", gender: user.gender || "", age: user.age?.toString() || "", phone: user.phone || "", level: user.level || "", email: user.email || "" });
       } else if (role === "coach") {
         updateCoachDraft({ id: user.id, firstName: user.first_name || "", lastName: user.last_name || "", gender: user.gender || "", phone: user.phone || "", email: user.email || "" });
+      } else if (role === "manager") {
+        // ✅ المانجر: داتاه محفوظة في localStorage عن طريق saveSession في loginUser
+        // مش محتاج draft منفصل، بس نتأكد إن الـ role اتسيت صح في الـ context
+        setRole("manager");
       }
 
       setMessage("Login successful!");

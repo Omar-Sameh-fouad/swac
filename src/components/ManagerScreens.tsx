@@ -4,6 +4,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { BackButton } from "./SharedUI";
+import { getSessionUser } from "@/core/api";
 
 // ==========================================
 // MANAGER HOME & TABLES
@@ -36,9 +37,13 @@ function ScheduleTable({ title, rowLabel }: { title: string; rowLabel: "Class Le
   );
 }
 
-// ✅ إصلاح: تحويل الـ props-based callbacks إلى Next.js router
+// ✅ إصلاح: تحويل الـ props-based callbacks إلى Next.js router + جلب داتا المانجر
 export function ManagerHomeScreen() {
   const router = useRouter();
+
+  // ✅ جلب داتا المانجر من الـ localStorage
+  const sessionUser = typeof window !== "undefined" ? getSessionUser() : null;
+  const managerName = [sessionUser?.first_name, sessionUser?.last_name].filter(Boolean).join(" ") || "Manager";
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#fffef8] text-black">
@@ -66,7 +71,7 @@ export function ManagerHomeScreen() {
         <header className="mb-[clamp(16px,2.6vh,25px)] pt-[clamp(32px,5vh,48px)]">
           <h1 className="text-[clamp(18px,2vw,24px)] font-black leading-none">Home</h1>
           <p className="mt-[14px] text-[clamp(12px,1.25vw,15px)] font-black leading-none text-[#108bad]">Welcome Manager</p>
-          <p className="mt-[12px] text-[clamp(9px,0.9vw,11px)] font-bold leading-none text-black/25">The Name</p>
+          <p className="mt-[12px] text-[clamp(9px,0.9vw,11px)] font-bold leading-none text-black/25">{managerName}</p>
         </header>
 
         <div className="relative">
