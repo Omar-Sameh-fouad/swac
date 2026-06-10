@@ -165,11 +165,10 @@ export function AttendanceScreen() {
     fetchUsers();
   }, [isManager]);
 
-  // ✅ لما المدير يغير اختياره، نجيب attendance الخاص بيه
+  // ✅ لما المدير يغير اختياره، أو يتم تحميل الصفحة، نجيب الـ attendance
   useEffect(() => {
     async function fetchAttendance() {
       try {
-        // المدير + اختار مستخدم → فلتر بـ user_id & user_type
         const params: Record<string, any> =
           isManager && selectedUserId && selectedUserType
             ? { user_id: selectedUserId, user_type: selectedUserType }
@@ -177,10 +176,17 @@ export function AttendanceScreen() {
 
         const data = await AttendanceAPI.get(params);
         const list = Array.isArray(data) ? data : (data?.data ?? []);
+
+        // ✅ تحديد الاسم بناءً على من قام بتسجيل الدخول أو اختيار المدير
+        const currentName = isManager 
+          ? userOptions.find((u) => u.id === Number(selectedUserId) && u.type === selectedUserType)?.name 
+          : sessionUser?.name;
+
         const mapped: AttendanceRow[] = list.map((item: any, index: number) => {
           const date = new Date(item.date || item.created_at || Date.now());
           return {
             id: item.id || index + 1,
+            userName: currentName || item.user_name, // دمج الاسم هنا
             day: date.getDate().toString(),
             month: date.toLocaleString("en-US", { month: "short" }),
             state: item.status === "present" || item.state === "Attend" ? "Attend" : "Absent",
@@ -190,7 +196,7 @@ export function AttendanceScreen() {
       } catch { /* صامت */ }
     }
     fetchAttendance();
-  }, [isManager, selectedUserId, selectedUserType]);
+  }, [isManager, selectedUserId, selectedUserType, userOptions, sessionUser?.name]);
 
   async function addAttendance() {
     setIsLogging(true);
@@ -238,7 +244,13 @@ export function AttendanceScreen() {
         time: now.time,
       };
       const response = await AttendanceAPI.log(payload);
-      setRows((cur) => [...cur, { id: response?.attendance_id || cur.length + 1, day: now.day, month: now.month, state: "Attend" }]);
+      setRows((cur) => [...cur, { 
+        id: response?.attendance_id || cur.length + 1, 
+        userName: sessionUser?.name, // ✅ إضافة الاسم للمستخدم العادي عند تسجيل الحضور
+        day: now.day, 
+        month: now.month, 
+        state: "Attend" 
+      }]);
     } catch (error: any) {
       setErrorMsg(error.message || "Failed to log attendance.");
     } finally {
@@ -321,7 +333,8 @@ export function AttendanceScreen() {
               style={{ width: "min(722px, calc(100vw - 40px))" }}
             >
               <div className="grid h-[50px] grid-cols-4 items-center border-b border-black/60 text-[14px] font-black">
-                <span className="pl-5">{isManager ? "Name" : "id"}</span>
+                {/* الهيدر ثابت "Name" دائماً */}
+                <span className="pl-5">Name</span>
                 <span className="text-center">Day</span>
                 <span className="text-center">Month</span>
                 <span className="text-center">State</span>
@@ -330,7 +343,8 @@ export function AttendanceScreen() {
               <div className="max-h-[200px] overflow-y-auto text-[13px] font-black">
                 {rows.map((row) => (
                   <div className="grid h-10 grid-cols-4 items-center border-b border-black/10" key={row.id}>
-                    <span className="pl-5 truncate pr-1">{isManager ? (row.userName || row.id) : row.id}</span>
+                    {/* عرض الاسم دائماً، وفي حال عدم وجوده كاحتياط يتم عرض الـ id */}
+                    <span className="pl-5 truncate pr-1">{row.userName || row.id}</span>
                     <span className="text-center">{row.day}</span>
                     <span className="text-center">{row.month}</span>
                     <span className="text-center">{row.state}</span>
