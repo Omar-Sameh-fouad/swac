@@ -1,4 +1,3 @@
-// مسار الملف: src/components/AttendanceScreen.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -93,7 +92,6 @@ function getNow() {
   const now = new Date();
   const day = now.getDate().toString();
   const month = now.toLocaleString("en-US", { month: "short" });
-  // صيغة الوقت للباك إند (HH:MM:SS)
   const time = now.toLocaleTimeString("en-US", { hour12: false });
   const displayTime = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   return { day, month, time, displayTime, fullDate: `${day} ${month} ${now.getFullYear()}` };
@@ -112,7 +110,6 @@ export function AttendanceScreen() {
   const userId = sessionUser?.id;
   const isManager = sessionUser?.role === "manager";
 
-  // ✅ للمدير: قائمة المستخدمين + الاختيار
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<number | "">("");
   const [selectedUserType, setSelectedUserType] = useState<"swimmer" | "coach" | "">("");
@@ -122,7 +119,6 @@ export function AttendanceScreen() {
   const attendedCount = rows.filter((r) => r.state === "Attend").length;
   const attendPercent = totalDays > 0 ? Math.round((attendedCount / totalDays) * 100) : 0;
 
-  // ✅ جلب قائمة المستخدمين للمدير فقط
   useEffect(() => {
     if (!isManager) return;
     async function fetchUsers() {
@@ -132,17 +128,14 @@ export function AttendanceScreen() {
           UsersAPI.getCoaches().catch(() => []),
         ]);
 
-        // ✅ استخراج الـ array من أي شكل للـ response
         function extractList(res: any): any[] {
           if (Array.isArray(res)) return res;
-          // جرب كل الـ keys الممكنة
           for (const key of ["data", "users", "swimmers", "coaches", "list", "results"]) {
             if (Array.isArray(res?.[key])) return res[key];
           }
           return [];
         }
 
-        // ✅ الـ API بيرجع { id, name } مباشرة
         function extractName(u: any, fallbackPrefix: string): string {
           return u.name?.trim() || `${fallbackPrefix} #${u.id}`;
         }
@@ -165,7 +158,6 @@ export function AttendanceScreen() {
     fetchUsers();
   }, [isManager]);
 
-  // ✅ لما المدير يغير اختياره، أو يتم تحميل الصفحة، نجيب الـ attendance
   useEffect(() => {
     async function fetchAttendance() {
       try {
@@ -177,7 +169,6 @@ export function AttendanceScreen() {
         const data = await AttendanceAPI.get(params);
         const list = Array.isArray(data) ? data : (data?.data ?? []);
 
-        // ✅ تحديد الاسم بناءً على من قام بتسجيل الدخول أو اختيار المدير
         const currentName = isManager 
           ? userOptions.find((u) => u.id === Number(selectedUserId) && u.type === selectedUserType)?.name 
           : sessionUser?.name;
@@ -186,7 +177,7 @@ export function AttendanceScreen() {
           const date = new Date(item.date || item.created_at || Date.now());
           return {
             id: item.id || index + 1,
-            userName: currentName || item.user_name, // دمج الاسم هنا
+            userName: currentName || item.user_name,
             day: date.getDate().toString(),
             month: date.toLocaleString("en-US", { month: "short" }),
             state: item.status === "present" || item.state === "Attend" ? "Attend" : "Absent",
@@ -198,21 +189,24 @@ export function AttendanceScreen() {
     fetchAttendance();
   }, [isManager, selectedUserId, selectedUserType, userOptions, sessionUser?.name]);
 
-  async function addAttendance() {
+  // تم تعديل الدالة لتقبل الحضور أو الغياب
+  async function handleLog(status: "present" | "absent") {
     setIsLogging(true);
     setErrorMsg("");
+    
+    const displayState = status === "present" ? "Attend" : "Absent";
+
     try {
-      // ✅ منع التسجيل أكتر من مرة في نفس اليوم
+      // منع التسجيل أكتر من مرة في نفس اليوم لنفس الشخص
       const alreadyLogged = rows.some(
-        (r) => r.day === now.day && r.month === now.month && r.state === "Attend"
+        (r) => r.day === now.day && r.month === now.month
       );
       if (alreadyLogged) {
-        setErrorMsg("Attendance already logged for today.");
+        setErrorMsg("Record already logged for today.");
         setIsLogging(false);
         return;
       }
 
-      // ✅ المدير: لازم يختار مستخدم
       if (isManager) {
         if (!selectedUserId || !selectedUserType) {
           setErrorMsg("Please select a user first.");
@@ -222,37 +216,39 @@ export function AttendanceScreen() {
         const payload = {
           user_id: selectedUserId,
           user_type: selectedUserType,
-          status: "present",
+          status: status, // تمرير الحالة هنا
           date: new Date().toISOString().split("T")[0],
           time: now.time,
         };
         const response = await AttendanceAPI.log(payload);
         const selectedUser = userOptions.find((u) => u.id === selectedUserId && u.type === selectedUserType);
-        setRows((cur) => [...cur, { id: response?.attendance_id || cur.length + 1, userName: selectedUser?.name, day: now.day, month: now.month, state: "Attend" }]);
+        
+        setRows((cur) => [...cur, { id: response?.attendance_id || cur.length + 1, userName: selectedUser?.name, day: now.day, month: now.month, state: displayState }]);
         return;
       }
 
-      // ✅ Swimmer / Coach: يسجل لنفسه
       if (!userId) {
         setErrorMsg("User not found. Please log out and log in again.");
         setIsLogging(false);
         return;
       }
+      
       const payload = {
-        status: "present",
+        status: status, // تمرير الحالة هنا
         date: new Date().toISOString().split("T")[0],
         time: now.time,
       };
+      
       const response = await AttendanceAPI.log(payload);
       setRows((cur) => [...cur, { 
         id: response?.attendance_id || cur.length + 1, 
-        userName: sessionUser?.name, // ✅ إضافة الاسم للمستخدم العادي عند تسجيل الحضور
+        userName: sessionUser?.name, 
         day: now.day, 
         month: now.month, 
-        state: "Attend" 
+        state: displayState 
       }]);
     } catch (error: any) {
-      setErrorMsg(error.message || "Failed to log attendance.");
+      setErrorMsg(error.message || `Failed to log ${displayState.toLowerCase()}.`);
     } finally {
       setIsLogging(false);
     }
@@ -275,14 +271,13 @@ export function AttendanceScreen() {
         <div className="mt-8 grid gap-8 md:grid-cols-[722px_1fr] md:gap-9">
           <div className="min-w-0">
 
-            {/* ── الصف العلوي: Time + Day ── */}
             <div className="flex flex-wrap items-center gap-4 md:gap-8">
               <InfoBox label="Time" value={now.displayTime} />
               <InfoBox label="Day"  value={now.fullDate} />
             </div>
 
-            {/* ── منطقة الـ Dropdown + زرار الـ + ── */}
-            <div className="mt-6 flex flex-col items-center gap-3">
+            {/* تم تحديث هذه المنطقة لإضافة زر الغياب */}
+            <div className="mt-6 flex flex-col items-center gap-5">
               {isManager && (
                 <div className="w-full max-w-[320px]">
                   <label className="mb-1 block text-center text-[13px] font-black">Select User</label>
@@ -314,26 +309,46 @@ export function AttendanceScreen() {
                   </select>
                 </div>
               )}
-              <button
-                aria-label="Press to attend"
-                disabled={isLogging}
-                className="grid h-28 w-28 place-items-center rounded-full bg-[#168dab] text-[74px] font-light leading-none text-white shadow-[0_8px_20px_rgba(22,141,171,0.12)] transition hover:scale-[1.02] hover:bg-[#107f9b] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#168dab] focus-visible:ring-offset-4 disabled:opacity-60"
-                onClick={addAttendance}
-                type="button"
-              >
-                <span className="-mt-2">{isLogging ? "..." : "+"}</span>
-              </button>
-              <p className="text-[14px] font-black">Press to attend</p>
+
+              {/* حاوية الأزرار الجديدة */}
+              <div className="flex gap-8">
+                {/* زر الحضور */}
+                <div className="flex flex-col items-center gap-2">
+                  <button
+                    aria-label="Press to attend"
+                    disabled={isLogging}
+                    className="grid h-28 w-28 place-items-center rounded-full bg-[#168dab] text-[74px] font-light leading-none text-white shadow-[0_8px_20px_rgba(22,141,171,0.12)] transition hover:scale-[1.02] hover:bg-[#107f9b] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#168dab] focus-visible:ring-offset-4 disabled:opacity-60"
+                    onClick={() => handleLog("present")}
+                    type="button"
+                  >
+                    <span className="-mt-2">{isLogging ? "..." : "+"}</span>
+                  </button>
+                  <p className="text-[14px] font-black">Attend</p>
+                </div>
+
+                {/* زر الغياب */}
+                <div className="flex flex-col items-center gap-2">
+                  <button
+                    aria-label="Press for absent"
+                    disabled={isLogging}
+                    className="grid h-28 w-28 place-items-center rounded-full bg-[#f92c92] text-[74px] font-light leading-none text-white shadow-[0_8px_20px_rgba(249,44,146,0.12)] transition hover:scale-[1.02] hover:bg-[#d61f7a] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f92c92] focus-visible:ring-offset-4 disabled:opacity-60"
+                    onClick={() => handleLog("absent")}
+                    type="button"
+                  >
+                    <span className="-mt-2">{isLogging ? "..." : "-"}</span>
+                  </button>
+                  <p className="text-[14px] font-black">Absent</p>
+                </div>
+              </div>
+
               {errorMsg && <p className="max-w-[240px] text-center text-xs font-bold text-red-600">{errorMsg}</p>}
             </div>
 
-            {/* ── الجدول ── */}
             <div
               className="mx-auto mt-6 h-[250px] max-w-full overflow-hidden bg-[#d9d9d9] md:mx-0"
               style={{ width: "min(722px, calc(100vw - 40px))" }}
             >
               <div className="grid h-[50px] grid-cols-4 items-center border-b border-black/60 text-[14px] font-black">
-                {/* الهيدر ثابت "Name" دائماً */}
                 <span className="pl-5">Name</span>
                 <span className="text-center">Day</span>
                 <span className="text-center">Month</span>
@@ -343,11 +358,12 @@ export function AttendanceScreen() {
               <div className="max-h-[200px] overflow-y-auto text-[13px] font-black">
                 {rows.map((row) => (
                   <div className="grid h-10 grid-cols-4 items-center border-b border-black/10" key={row.id}>
-                    {/* عرض الاسم دائماً، وفي حال عدم وجوده كاحتياط يتم عرض الـ id */}
                     <span className="pl-5 truncate pr-1">{row.userName || row.id}</span>
                     <span className="text-center">{row.day}</span>
                     <span className="text-center">{row.month}</span>
-                    <span className="text-center">{row.state}</span>
+                    <span className="text-center font-bold" style={{ color: row.state === "Absent" ? "#f92c92" : "inherit" }}>
+                      {row.state}
+                    </span>
                   </div>
                 ))}
               </div>
