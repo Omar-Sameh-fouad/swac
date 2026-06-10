@@ -11,6 +11,17 @@ import { useSignupDraft } from "@/core/SignupContext";
 function ArrowRightIcon() { return <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /></svg>; }
 function BackArrowIcon() { return <svg viewBox="0 0 24 24" className="h-[55%] w-[55%]" aria-hidden><path d="M14.5 6 8.5 12l6 6" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.6" /></svg>; }
 function LogoutIcon() { return <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden><path d="M13 5h5v14h-5M8 8l-4 4 4 4M4 12h11" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /></svg>; }
+function MenuIcon() { return <svg viewBox="0 0 24 24" className="h-[52%] w-[52%]" aria-hidden><path d="M6 8h12M6 12h12M6 16h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>; }
+function ProfileIcon() { return <svg viewBox="0 0 24 24" className="h-[68%] w-[68%]" aria-hidden><circle cx="12" cy="8.4" r="3.2" fill="white" /><path d="M5.8 19.2c.7-3.2 3-5 6.2-5s5.5 1.8 6.2 5" fill="white" /></svg>; }
+
+const days = ["Day", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
+const colDays = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
+const dayMap: Record<string, string> = {
+  Saturday: "Sat", Sunday: "Sun", Monday: "Mon", Tuesday: "Tue",
+  Wednesday: "Wed", Thursday: "Thu", Friday: "Fri",
+  Sat: "Sat", Sun: "Sun", Mon: "Mon", Tue: "Tue",
+  Wed: "Wed", Thu: "Thu", Fri: "Fri",
+};
 
 // ==========================================
 // MANAGER MENU
@@ -47,18 +58,9 @@ export function ManagerMenuScreen() {
   );
 }
 
-const days = ["Day", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
-const dayMap: Record<string, string> = {
-  Saturday: "Sat", Sunday: "Sun", Monday: "Mon", Tuesday: "Tue",
-  Wednesday: "Wed", Thursday: "Thu", Friday: "Fri",
-  Sat: "Sat", Sun: "Sun", Mon: "Mon", Tue: "Tue",
-  Wed: "Wed", Thu: "Thu", Fri: "Fri",
-};
-
-function MenuIcon() { return <svg viewBox="0 0 24 24" className="h-[52%] w-[52%]" aria-hidden><path d="M6 8h12M6 12h12M6 16h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>; }
-function ProfileIcon() { return <svg viewBox="0 0 24 24" className="h-[68%] w-[68%]" aria-hidden><circle cx="12" cy="8.4" r="3.2" fill="white" /><path d="M5.8 19.2c.7-3.2 3-5 6.2-5s5.5 1.8 6.2 5" fill="white" /></svg>; }
-
-// ✅ جدول بيعرض داتا حقيقية متوزعة صح على الأيام زي الديزاين
+// ==========================================
+// LIVE SCHEDULE TABLE (HOME)
+// ==========================================
 function LiveScheduleTable({
   title,
   rows,
@@ -70,9 +72,6 @@ function LiveScheduleTable({
   isLoading: boolean;
   labelKey: "class_level" | "team_name";
 }) {
-  const colDays = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
-
-  // بنبني map: { dayShort -> entry[] }
   const cellMap: Record<string, { label: string; time: string; coachName: string }[]> = {};
   rows.forEach((row) => {
     const dayShort = dayMap[row.day] ?? row.day;
@@ -84,11 +83,8 @@ function LiveScheduleTable({
     });
   });
 
-  // بنحسب أكبر عدد من الصفوف محتاجينه، وبنخليه على الأقل 5 عشان يطابق الصورة
   const maxDataRows = Math.max(0, ...colDays.map((d) => cellMap[d]?.length ?? 0));
   const displayRows = Math.max(5, maxDataRows); 
-
-  // بنحدد الكلمة اللي هتظهر في أول عمود بناءً على نوع الجدول
   const mainLabel = labelKey === "class_level" ? "Class Level" : "Team name";
 
   return (
@@ -112,34 +108,29 @@ function LiveScheduleTable({
                 <td colSpan={8} className="border border-[#9d9d9d] py-6 text-[clamp(8px,0.9vw,11px)] font-bold text-black/40">Loading...</td>
               </tr>
             ) : (
-              Array.from({ length: displayRows }).map((_, rowIndex) => {
-                return (
-                  <tr key={rowIndex}>
-                    {/* ✅ العمود الأول: ثابت فيه العناوين زي الصورة */}
-                    <td className="border border-[#9d9d9d] bg-white/35 px-[1.3vw] py-1 text-left text-[clamp(7px,0.72vw,10px)] font-bold leading-[1.7]">
-                      <span className="block">{mainLabel}</span>
-                      <span className="block">time</span>
-                      <span className="block">coach name</span>
-                    </td>
-                    
-                    {/* ✅ باقي الأعمدة: الداتا بتتحط تحت اليوم بتاعها */}
-                    {colDays.map((day) => {
-                      const cell = cellMap[day]?.[rowIndex];
-                      return (
-                        <td key={`${day}-${rowIndex}`} className="h-[clamp(40px,5vh,55px)] border border-[#9d9d9d] bg-transparent px-[clamp(3px,0.5vw,6px)] py-1 text-center align-middle text-[clamp(6px,0.7vw,10px)] font-bold leading-[1.6]">
-                          {cell ? (
-                            <>
-                              <span className="block font-black text-black">{cell.label}</span>
-                              <span className="block text-black/50">{cell.time}</span>
-                              <span className="block text-black/35">{cell.coachName}</span>
-                            </>
-                          ) : null}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })
+              Array.from({ length: displayRows }).map((_, rowIndex) => (
+                <tr key={rowIndex}>
+                  <td className="border border-[#9d9d9d] bg-white/35 px-[1.3vw] py-1 text-left text-[clamp(7px,0.72vw,10px)] font-bold leading-[1.7]">
+                    <span className="block">{mainLabel}</span>
+                    <span className="block">time</span>
+                    <span className="block">coach name</span>
+                  </td>
+                  {colDays.map((day) => {
+                    const cell = cellMap[day]?.[rowIndex];
+                    return (
+                      <td key={`${day}-${rowIndex}`} className="h-[clamp(40px,5vh,55px)] border border-[#9d9d9d] bg-transparent px-[clamp(3px,0.5vw,6px)] py-1 text-center align-middle text-[clamp(6px,0.7vw,10px)] font-bold leading-[1.6]">
+                        {cell ? (
+                          <>
+                            <span className="block font-black text-black">{cell.label}</span>
+                            <span className="block text-black/50">{cell.time}</span>
+                            <span className="block text-black/35">{cell.coachName}</span>
+                          </>
+                        ) : null}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
             )}
           </tbody>
         </table>
@@ -148,10 +139,11 @@ function LiveScheduleTable({
   );
 }
 
-// ✅ إصلاح: جلب داتا Classes وTeams من الـ API بمرونة لأسماء المتغيرات
+// ==========================================
+// MANAGER HOME SCREEN
+// ==========================================
 export function ManagerHomeScreen() {
   const router = useRouter();
-
   const sessionUser = typeof window !== "undefined" ? getSessionUser() : null;
   const managerName = [sessionUser?.first_name, sessionUser?.last_name].filter(Boolean).join(" ") || "Manager";
 
@@ -169,47 +161,35 @@ export function ManagerHomeScreen() {
           CoachAPI.getList().catch(() => []),
         ]);
 
-        // 1. استخراج لستة المدربين بأكثر من احتمال لهيكل الداتا (عشان لو الباك إند مرجعها جوا data أو users)
         const rawCoaches = coachesRes?.data?.users || coachesRes?.data || coachesRes?.users || coachesRes?.coaches || coachesRes;
         const coachList = Array.isArray(rawCoaches) ? rawCoaches : [];
-        
         const coachMap: Record<string | number, string> = {};
         coachList.forEach((c: any) => {
           const id = c.id || c._id;
-          if (id) {
-            coachMap[id] = [c.first_name, c.last_name].filter(Boolean).join(" ") || c.name || "Unknown Coach";
-          }
+          if (id) coachMap[id] = [c.first_name, c.last_name].filter(Boolean).join(" ") || c.name || "Unknown Coach";
         });
 
-        // 2. دمج اسم المدرب مع الكلاسات (مع دعم كذا شكل لـ coach_id)
         const rawClasses = Array.isArray(classesRes) ? classesRes : classesRes?.data?.classes || classesRes?.data || classesRes?.classes || [];
         const classes = rawClasses.map((c: any) => {
-          // محاولة استخراج الـ ID بأي اسم محتمل
           const coachId = c.coach_id || c.coachId || c.coach?.id || c.coach?._id;
-          
-          // لو الباك إند باعت اسم الكوتش جاهز جوه object، خده.. لو لأ هاته من الـ Map
           const nestedName = c.coach?.first_name ? `${c.coach.first_name} ${c.coach.last_name || ''}`.trim() : c.coach?.name;
-          
-          // لو مفيش اسم بس فيه ID، اعرض الـ ID مؤقتاً عشان نعرف المشكلة منين
-          const finalCoachName = nestedName || (coachId ? coachMap[coachId] : null) || (coachId ? `Coach ID: ${coachId}` : "-");
-          
+          // ✅ تم التعديل: قراءة coach_name من الـ API مباشرة
+          const finalCoachName = c.coach_name || nestedName || (coachId ? coachMap[coachId] : null) || (coachId ? `Coach ID: ${coachId}` : "-");
           return { ...c, coach_name: finalCoachName };
         });
 
-        // 3. دمج اسم المدرب مع الفرق بنفس الطريقة
         const rawTeams = Array.isArray(teamsRes) ? teamsRes : teamsRes?.data?.teams || teamsRes?.data || teamsRes?.teams || [];
         const teams = rawTeams.map((t: any) => {
           const coachId = t.coach_id || t.coachId || t.coach?.id || t.coach?._id;
           const nestedName = t.coach?.first_name ? `${t.coach.first_name} ${t.coach.last_name || ''}`.trim() : t.coach?.name;
-          const finalCoachName = nestedName || (coachId ? coachMap[coachId] : null) || (coachId ? `Coach ID: ${coachId}` : "-");
-          
+          // ✅ تم التعديل: قراءة coach_name من الـ API مباشرة
+          const finalCoachName = t.coach_name || nestedName || (coachId ? coachMap[coachId] : null) || (coachId ? `Coach ID: ${coachId}` : "-");
           return { ...t, coach_name: finalCoachName };
         });
 
         setClassesData(classes);
         setTeamsData(teams);
       } catch {
-        // صامت
       } finally {
         setIsLoading(false);
       }
@@ -232,12 +212,10 @@ export function ManagerHomeScreen() {
         <div className="relative">
           <Image src="/images/swim-master-logo-clean.png" alt="" aria-hidden="true" width={975} height={963} sizes="(max-width: 768px) 80vw, 610px" className="pointer-events-none absolute left-1/2 top-[34%] z-0 h-auto w-[clamp(360px,50vw,610px)] -translate-x-1/2 -translate-y-1/2 object-contain opacity-55 mix-blend-multiply brightness-125 contrast-80 saturate-110 hue-rotate-[10deg]" />
           <div className="relative z-10">
-            {/* ✅ جدول الكلاسيز بداتا حقيقية */}
             <LiveScheduleTable title="The Classes Table" rows={classesData} isLoading={isLoading} labelKey="class_level" />
             <button type="button" onClick={() => router.push("/manager/classes")} className="mx-auto mt-[clamp(14px,2.7vh,24px)] flex min-h-[44px] w-[clamp(106px,12vw,130px)] items-center justify-center rounded-full bg-[#108bad] text-[clamp(12px,0.82vw,13px)] font-black text-white shadow-[0_8px_15px_-12px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a] md:min-h-[clamp(25px,3.2vh,32px)]">Edit</button>
 
             <div className="mt-[clamp(22px,4vh,38px)]">
-              {/* ✅ جدول التيمز بداتا حقيقية */}
               <LiveScheduleTable title="The Teams Table" rows={teamsData} isLoading={isLoading} labelKey="team_name" />
             </div>
             <button type="button" onClick={() => router.push("/manager/teams")} className="mx-auto mt-[clamp(25px,4vh,42px)] flex min-h-[44px] w-[clamp(108px,12vw,132px)] items-center justify-center rounded-full bg-[#108bad] text-[clamp(12px,0.82vw,13px)] font-black text-white shadow-[0_8px_15px_-12px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a] md:min-h-[clamp(28px,3.6vh,34px)]">Edit</button>
@@ -248,25 +226,67 @@ export function ManagerHomeScreen() {
   );
 }
 
+// ==========================================
+// TEAMS TABLE SCREEN (EDIT MODE)
+// ==========================================
 export function TeamsTableScreen() {
   const router = useRouter();
+  const [data, setData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchTeams() {
+      try {
+        const res = await TeamsAPI.getAll();
+        const rawTeams = Array.isArray(res) ? res : res?.data?.teams || res?.data || [];
+        setData(rawTeams);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchTeams();
+  }, []);
+
+  const handleChange = (id: number, field: string, value: string) => {
+    setData((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+  };
+
+  const handleSave = async (item: any) => {
+    try {
+      // ✅ هتتأكد إن عندك دالة updateTeam في الـ API
+      if (TeamsAPI.updateTeam) {
+        await TeamsAPI.updateTeam(item.id, item);
+        alert("Team updated successfully!");
+      } else {
+        alert("TeamsAPI.updateTeam is not defined yet.");
+      }
+    } catch (err) {
+      alert("Failed to update team");
+    }
+  };
+
+  const cellMap: Record<string, any[]> = {};
+  data.forEach((row) => {
+    const dayShort = dayMap[row.day] ?? row.day;
+    if (!cellMap[dayShort]) cellMap[dayShort] = [];
+    cellMap[dayShort].push(row);
+  });
+
+  const displayRows = Math.max(5, Math.max(0, ...colDays.map((d) => cellMap[d]?.length ?? 0)));
 
   return (
     <main className="min-h-screen bg-[#fffef8] px-[5vw] py-[6vh] text-black max-md:px-[4vw]">
       <BackButton onClick={() => router.push("/manager/home")} />
       <section className="mx-auto flex min-h-[88vh] w-full max-w-[920px] flex-col justify-center pt-12 md:pt-0">
-        <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Please put the teams table</h1>
+        <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Edit the teams table</h1>
         <div className="relative overflow-x-auto overflow-y-hidden border border-[#9d9d9d] bg-white">
-          <Image
-            src="/images/swimmer-table-bg.png"
-            alt=""
-            aria-hidden="true"
-            width={1537}
-            height={1023}
-            sizes="(max-width: 768px) 82vw, 740px"
-            className="pointer-events-none absolute left-1/2 top-[56%] z-0 h-auto max-h-[92%] w-[82%] max-w-[740px] -translate-x-1/2 -translate-y-1/2 object-contain opacity-35 saturate-90"
-          />
           <table className="relative z-10 h-[min(52vh,500px)] min-h-[355px] w-full min-w-[720px] table-fixed border-collapse bg-transparent text-center">
+            <colgroup>
+              <col className="w-[13.4%]" />
+              {colDays.map((d) => <col key={d} />)}
+            </colgroup>
             <thead>
               <tr>
                 {days.map((day) => (
@@ -275,52 +295,104 @@ export function TeamsTableScreen() {
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: 5 }).map((_, index) => (
-                <tr key={index}>
-                  <td className="border border-[#9d9d9d] bg-white/35 px-[1.3vw] text-left text-[clamp(7px,0.72vw,10px)] font-bold leading-[1.7]">
-                    <span className="block">Team name</span>
-                    <span className="block">time</span>
-                    <span className="block">coach name</span>
-                  </td>
-                  {days.slice(1).map((day) => (
-                    <td key={`${day}-${index}`} className="border border-[#9d9d9d] bg-transparent" />
-                  ))}
-                </tr>
-              ))}
+              {isLoading ? (
+                <tr><td colSpan={8} className="py-10 text-center font-bold text-gray-400">Loading Teams...</td></tr>
+              ) : (
+                Array.from({ length: displayRows }).map((_, rowIndex) => (
+                  <tr key={rowIndex}>
+                    <td className="border border-[#9d9d9d] bg-white/35 px-[1.3vw] text-left text-[clamp(7px,0.72vw,10px)] font-bold leading-[1.7]">
+                      <span className="block">Team name</span>
+                      <span className="block">time</span>
+                      <span className="block">coach name</span>
+                    </td>
+                    {colDays.map((day) => {
+                      const item = cellMap[day]?.[rowIndex];
+                      return (
+                        <td key={`${day}-${rowIndex}`} className="border border-[#9d9d9d] bg-transparent p-1">
+                          {item ? (
+                            <div className="flex flex-col gap-1">
+                              <input className="w-full rounded border bg-gray-50 text-center text-[clamp(7px,0.8vw,10px)] font-bold" value={item.team_name || ""} onChange={(e) => handleChange(item.id, "team_name", e.target.value)} />
+                              <input className="w-full rounded border bg-gray-50 text-center text-[clamp(7px,0.8vw,10px)]" value={item.time || ""} onChange={(e) => handleChange(item.id, "time", e.target.value)} />
+                              <input className="w-full rounded border bg-gray-50 text-center text-[clamp(7px,0.8vw,10px)]" value={item.coach_name || ""} onChange={(e) => handleChange(item.id, "coach_name", e.target.value)} />
+                              <button onClick={() => handleSave(item)} className="mt-1 rounded bg-[#108bad] py-0.5 text-[8px] text-white hover:bg-[#0d7c9a]">Save</button>
+                            </div>
+                          ) : null}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push("/manager/home")}
-          className="mx-auto mt-[4vh] min-h-[44px] w-[clamp(112px,13vw,135px)] rounded-full bg-[#108bad] text-[clamp(12px,1vw,13px)] font-black text-white shadow-[0_8px_16px_-12px_rgba(0,0,0,0.85)] transition hover:bg-[#0d7c9a]"
-        >
-          Done
-        </button>
+        <button type="button" onClick={() => router.push("/manager/home")} className="mx-auto mt-[4vh] min-h-[44px] w-[clamp(112px,13vw,135px)] rounded-full bg-[#108bad] text-[clamp(12px,1vw,13px)] font-black text-white shadow-[0_8px_16px_-12px_rgba(0,0,0,0.85)] transition hover:bg-[#0d7c9a]">Done</button>
       </section>
     </main>
   );
 }
 
+// ==========================================
+// CLASSES TABLE SCREEN (EDIT MODE)
+// ==========================================
 export function ClassesTableScreen() {
   const router = useRouter();
+  const [data, setData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchClasses() {
+      try {
+        const res = await ClassesAPI.getAll();
+        const rawClasses = Array.isArray(res) ? res : res?.data?.classes || res?.data || [];
+        setData(rawClasses);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchClasses();
+  }, []);
+
+  const handleChange = (id: number, field: string, value: string) => {
+    setData((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+  };
+
+  const handleSave = async (item: any) => {
+    try {
+      // ✅ هتتأكد إن عندك دالة updateClass في الـ API عشان تنفذ الـ PUT
+      if (ClassesAPI.updateClass) {
+        await ClassesAPI.updateClass(item.id, item);
+        alert("Class updated successfully!");
+      } else {
+        alert("ClassesAPI.updateClass is not defined yet.");
+      }
+    } catch (err) {
+      alert("Failed to update class");
+    }
+  };
+
+  const cellMap: Record<string, any[]> = {};
+  data.forEach((row) => {
+    const dayShort = dayMap[row.day] ?? row.day;
+    if (!cellMap[dayShort]) cellMap[dayShort] = [];
+    cellMap[dayShort].push(row);
+  });
+
+  const displayRows = Math.max(5, Math.max(0, ...colDays.map((d) => cellMap[d]?.length ?? 0)));
 
   return (
     <main className="min-h-screen bg-[#fffef8] px-[5vw] py-[6vh] text-black max-md:px-[4vw]">
       <BackButton onClick={() => router.push("/manager/home")} />
       <section className="mx-auto flex min-h-[88vh] w-full max-w-[920px] flex-col justify-center pt-12 md:pt-0">
-        <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Please put the classes table</h1>
+        <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Edit the classes table</h1>
         <div className="relative overflow-x-auto overflow-y-hidden border border-[#9d9d9d] bg-white">
-          <Image
-            src="/images/swimmer-table-bg.png"
-            alt=""
-            aria-hidden="true"
-            width={1537}
-            height={1023}
-            sizes="(max-width: 768px) 82vw, 740px"
-            className="pointer-events-none absolute left-1/2 top-[56%] z-0 h-auto max-h-[92%] w-[82%] max-w-[740px] -translate-x-1/2 -translate-y-1/2 object-contain opacity-35 saturate-90"
-          />
           <table className="relative z-10 h-[min(52vh,500px)] min-h-[355px] w-full min-w-[720px] table-fixed border-collapse bg-transparent text-center">
+            <colgroup>
+              <col className="w-[13.4%]" />
+              {colDays.map((d) => <col key={d} />)}
+            </colgroup>
             <thead>
               <tr>
                 {days.map((day) => (
@@ -329,28 +401,38 @@ export function ClassesTableScreen() {
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: 5 }).map((_, index) => (
-                <tr key={index}>
-                  <td className="border border-[#9d9d9d] bg-white/35 px-[1.3vw] text-left text-[clamp(7px,0.72vw,10px)] font-bold leading-[1.7]">
-                    <span className="block">Class Level</span>
-                    <span className="block">time</span>
-                    <span className="block">coach name</span>
-                  </td>
-                  {days.slice(1).map((day) => (
-                    <td key={`${day}-${index}`} className="border border-[#9d9d9d] bg-transparent" />
-                  ))}
-                </tr>
-              ))}
+              {isLoading ? (
+                <tr><td colSpan={8} className="py-10 text-center font-bold text-gray-400">Loading Classes...</td></tr>
+              ) : (
+                Array.from({ length: displayRows }).map((_, rowIndex) => (
+                  <tr key={rowIndex}>
+                    <td className="border border-[#9d9d9d] bg-white/35 px-[1.3vw] text-left text-[clamp(7px,0.72vw,10px)] font-bold leading-[1.7]">
+                      <span className="block">Class Level</span>
+                      <span className="block">time</span>
+                      <span className="block">coach name</span>
+                    </td>
+                    {colDays.map((day) => {
+                      const item = cellMap[day]?.[rowIndex];
+                      return (
+                        <td key={`${day}-${rowIndex}`} className="border border-[#9d9d9d] bg-transparent p-1">
+                          {item ? (
+                            <div className="flex flex-col gap-1">
+                              <input className="w-full rounded border bg-gray-50 text-center text-[clamp(7px,0.8vw,10px)] font-bold" value={item.class_level || ""} onChange={(e) => handleChange(item.id, "class_level", e.target.value)} />
+                              <input className="w-full rounded border bg-gray-50 text-center text-[clamp(7px,0.8vw,10px)]" value={item.time || ""} onChange={(e) => handleChange(item.id, "time", e.target.value)} />
+                              <input className="w-full rounded border bg-gray-50 text-center text-[clamp(7px,0.8vw,10px)]" value={item.coach_name || ""} onChange={(e) => handleChange(item.id, "coach_name", e.target.value)} />
+                              <button onClick={() => handleSave(item)} className="mt-1 rounded bg-[#108bad] py-0.5 text-[8px] text-white hover:bg-[#0d7c9a]">Save</button>
+                            </div>
+                          ) : null}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push("/manager/home")}
-          className="mx-auto mt-[4vh] min-h-[44px] w-[clamp(112px,13vw,135px)] rounded-full bg-[#108bad] text-[clamp(12px,1vw,13px)] font-black text-white shadow-[0_8px_16px_-12px_rgba(0,0,0,0.85)] transition hover:bg-[#0d7c9a]"
-        >
-          Done
-        </button>
+        <button type="button" onClick={() => router.push("/manager/home")} className="mx-auto mt-[4vh] min-h-[44px] w-[clamp(112px,13vw,135px)] rounded-full bg-[#108bad] text-[clamp(12px,1vw,13px)] font-black text-white shadow-[0_8px_16px_-12px_rgba(0,0,0,0.85)] transition hover:bg-[#0d7c9a]">Done</button>
       </section>
     </main>
   );
