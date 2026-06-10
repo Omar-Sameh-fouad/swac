@@ -173,7 +173,6 @@ export function ManagerHomeScreen() {
         const classes = rawClasses.map((c: any) => {
           const coachId = c.coach_id || c.coachId || c.coach?.id || c.coach?._id;
           const nestedName = c.coach?.first_name ? `${c.coach.first_name} ${c.coach.last_name || ''}`.trim() : c.coach?.name;
-          // ✅ تم التعديل: قراءة coach_name من الـ API مباشرة
           const finalCoachName = c.coach_name || nestedName || (coachId ? coachMap[coachId] : null) || (coachId ? `Coach ID: ${coachId}` : "-");
           return { ...c, coach_name: finalCoachName };
         });
@@ -182,7 +181,6 @@ export function ManagerHomeScreen() {
         const teams = rawTeams.map((t: any) => {
           const coachId = t.coach_id || t.coachId || t.coach?.id || t.coach?._id;
           const nestedName = t.coach?.first_name ? `${t.coach.first_name} ${t.coach.last_name || ''}`.trim() : t.coach?.name;
-          // ✅ تم التعديل: قراءة coach_name من الـ API مباشرة
           const finalCoachName = t.coach_name || nestedName || (coachId ? coachMap[coachId] : null) || (coachId ? `Coach ID: ${coachId}` : "-");
           return { ...t, coach_name: finalCoachName };
         });
@@ -255,12 +253,12 @@ export function TeamsTableScreen() {
 
   const handleSave = async (item: any) => {
     try {
-      // ✅ هتتأكد إن عندك دالة updateTeam في الـ API
-      if (TeamsAPI.updateTeam) {
-        await TeamsAPI.updateTeam(item.id, item);
+      // ✅ تم التصحيح إلى update
+      if (TeamsAPI.update) {
+        await TeamsAPI.update(item.id, item);
         alert("Team updated successfully!");
       } else {
-        alert("TeamsAPI.updateTeam is not defined yet.");
+        alert("TeamsAPI.update is not defined yet.");
       }
     } catch (err) {
       alert("Failed to update team");
@@ -361,12 +359,12 @@ export function ClassesTableScreen() {
 
   const handleSave = async (item: any) => {
     try {
-      // ✅ هتتأكد إن عندك دالة updateClass في الـ API عشان تنفذ الـ PUT
-      if (ClassesAPI.updateClass) {
-        await ClassesAPI.updateClass(item.id, item);
+      // ✅ تم التصحيح إلى update
+      if (ClassesAPI.update) {
+        await ClassesAPI.update(item.id, item);
         alert("Class updated successfully!");
       } else {
-        alert("ClassesAPI.updateClass is not defined yet.");
+        alert("ClassesAPI.update is not defined yet.");
       }
     } catch (err) {
       alert("Failed to update class");
