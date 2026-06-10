@@ -21,7 +21,7 @@ const dayMap: Record<string, string> = {
 function MenuIcon() { return <svg viewBox="0 0 24 24" className="h-[52%] w-[52%]" aria-hidden><path d="M6 8h12M6 12h12M6 16h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>; }
 function ProfileIcon() { return <svg viewBox="0 0 24 24" className="h-[68%] w-[68%]" aria-hidden><circle cx="12" cy="8.4" r="3.2" fill="white" /><path d="M5.8 19.2c.7-3.2 3-5 6.2-5s5.5 1.8 6.2 5" fill="white" /></svg>; }
 
-// ✅ جديد: جدول بيعرض داتا حقيقية من الـ API
+// ✅ جدول بيعرض داتا حقيقية — كل entry في صفه
 function LiveScheduleTable({
   title,
   rows,
@@ -33,7 +33,9 @@ function LiveScheduleTable({
   isLoading: boolean;
   labelKey: "class_level" | "team_name";
 }) {
-  // بنحول الـ rows لـ map: { day -> [{ label, time, coachName }] }
+  const colDays = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
+
+  // بنبني map: { dayShort -> entry[] }
   const cellMap: Record<string, { label: string; time: string; coachName: string }[]> = {};
   rows.forEach((row) => {
     const dayShort = dayMap[row.day] ?? row.day;
@@ -41,42 +43,47 @@ function LiveScheduleTable({
     cellMap[dayShort].push({
       label: row[labelKey] || "-",
       time: row.time || "-",
-      coachName: row.coach_name || row.coach_id || "-",
+      coachName: row.coach_name || "-",
     });
   });
 
-  const maxRows = Math.max(5, ...Object.values(cellMap).map((v) => v.length));
+  const maxRows = Math.max(1, ...colDays.map((d) => cellMap[d]?.length ?? 0));
+  // بنضيف صفوف فاضية عشان الجدول ياخد ارتفاع minimum كويس
+  const displayRows = Math.max(maxRows, 3);
 
   return (
     <section>
       <h2 className="mb-[2px] text-[clamp(10px,1.05vw,13px)] font-black leading-none text-[#108bad]">{title}</h2>
       <div className="w-full overflow-x-auto">
-        <table className="h-[clamp(205px,27vh,250px)] w-full min-w-[680px] table-fixed border-collapse bg-transparent text-center">
-          <colgroup><col className="w-[13.4%]" />{days.slice(1).map((day) => <col key={day} />)}</colgroup>
+        <table className="h-[clamp(180px,22vh,240px)] w-full min-w-[680px] table-fixed border-collapse bg-transparent text-center">
+          <colgroup>
+            <col className="w-[13.4%]" />
+            {colDays.map((d) => <col key={d} />)}
+          </colgroup>
           <thead>
-            <tr>{days.map((day) => <th key={day} className="h-[25px] border border-[#9d9d9d] bg-white/35 text-[clamp(6px,0.72vw,10px)] font-black">{day}</th>)}</tr>
+            <tr>
+              <th className="h-[25px] border border-[#9d9d9d] bg-white/35 text-[clamp(6px,0.72vw,10px)] font-black">Day</th>
+              {colDays.map((d) => <th key={d} className="h-[25px] border border-[#9d9d9d] bg-white/35 text-[clamp(6px,0.72vw,10px)] font-black">{d}</th>)}
+            </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={8} className="border border-[#9d9d9d] py-6 text-[clamp(8px,0.9vw,11px)] font-bold text-black/40">
-                  Loading...
-                </td>
+                <td colSpan={8} className="border border-[#9d9d9d] py-6 text-[clamp(8px,0.9vw,11px)] font-bold text-black/40">Loading...</td>
               </tr>
             ) : (
-              Array.from({ length: maxRows }).map((_, rowIndex) => (
+              Array.from({ length: displayRows }).map((_, rowIndex) => (
                 <tr key={rowIndex}>
-                  {/* عمود الـ Day label (فاضي) */}
-                  <td className="border border-[#9d9d9d] bg-white/20" />
-                  {days.slice(1).map((day) => {
+                  <td className="h-[clamp(40px,5vh,55px)] border border-[#9d9d9d] bg-white/20 text-[clamp(5px,0.65vw,9px)] font-bold text-black/40">{rowIndex + 1}</td>
+                  {colDays.map((day) => {
                     const cell = cellMap[day]?.[rowIndex];
                     return (
-                      <td key={`${day}-${rowIndex}`} className="border border-[#9d9d9d] bg-transparent px-[clamp(3px,0.5vw,7px)] text-left align-top text-[clamp(5px,0.65vw,9px)] font-bold leading-[1.55]">
+                      <td key={`${day}-${rowIndex}`} className="border border-[#9d9d9d] bg-transparent px-[clamp(3px,0.5vw,6px)] py-1 text-left align-middle text-[clamp(5px,0.65vw,9px)] font-bold leading-[1.6]">
                         {cell ? (
                           <>
-                            <span className="block">{cell.label}</span>
+                            <span className="block font-black text-black">{cell.label}</span>
                             <span className="block text-black/50">{cell.time}</span>
-                            <span className="block text-black/40">{cell.coachName}</span>
+                            <span className="block text-black/35">{cell.coachName}</span>
                           </>
                         ) : null}
                       </td>
