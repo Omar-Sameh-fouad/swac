@@ -7,6 +7,7 @@ import { AttendanceAPI, getSessionUser, UsersAPI } from "@/core/api";
 
 type AttendanceRow = {
   id: number;
+  userName?: string;
   day: string;
   month: string;
   state: "Attend" | "Absent";
@@ -171,6 +172,16 @@ export function AttendanceScreen() {
     setIsLogging(true);
     setErrorMsg("");
     try {
+      // ✅ منع التسجيل أكتر من مرة في نفس اليوم
+      const alreadyLogged = rows.some(
+        (r) => r.day === now.day && r.month === now.month && r.state === "Attend"
+      );
+      if (alreadyLogged) {
+        setErrorMsg("Attendance already logged for today.");
+        setIsLogging(false);
+        return;
+      }
+
       // ✅ المدير: لازم يختار مستخدم
       if (isManager) {
         if (!selectedUserId || !selectedUserType) {
@@ -186,7 +197,8 @@ export function AttendanceScreen() {
           time: now.time,
         };
         const response = await AttendanceAPI.log(payload);
-        setRows((cur) => [...cur, { id: response?.attendance_id || cur.length + 1, day: now.day, month: now.month, state: "Attend" }]);
+        const selectedUser = userOptions.find((u) => u.id === selectedUserId && u.type === selectedUserType);
+        setRows((cur) => [...cur, { id: response?.attendance_id || cur.length + 1, userName: selectedUser?.name, day: now.day, month: now.month, state: "Attend" }]);
         return;
       }
 
@@ -226,69 +238,66 @@ export function AttendanceScreen() {
 
         <div className="mt-8 grid gap-8 md:grid-cols-[722px_1fr] md:gap-9">
           <div className="min-w-0">
-            <div className="relative flex min-h-0 flex-col items-center gap-6 md:min-h-[254px] md:block">
-              <div className="flex flex-col items-center gap-3 md:contents">
-                <div className="md:absolute md:left-[77px] md:top-0">
-                  <InfoBox label="Time" value={now.displayTime} />
-                </div>
-                <div className="md:absolute md:left-[339px] md:top-0">
-                  <InfoBox label="Day" value={now.fullDate} />
-                </div>
-              </div>
 
-              <div className="flex flex-col items-center md:absolute md:left-[263px] md:top-[86px]">
-                {/* ✅ Dropdown للمدير فقط */}
-                {isManager && (
-                  <div className="mb-4 w-full max-w-[260px]">
-                    <label className="mb-1 block text-center text-[13px] font-black">Select User</label>
-                    <select
-                      value={selectedUserId === "" ? "" : `${selectedUserType}:${selectedUserId}`}
-                      onChange={(e) => {
-                        if (!e.target.value) { setSelectedUserId(""); setSelectedUserType(""); return; }
-                        const [type, id] = e.target.value.split(":");
-                        setSelectedUserType(type as "swimmer" | "coach");
-                        setSelectedUserId(Number(id));
-                      }}
-                      className="h-10 w-full rounded-full border border-black/20 bg-white px-4 text-[13px] font-bold outline-none focus:border-[#168dab] focus:ring-2 focus:ring-[#168dab]/20"
-                    >
-                      <option value="">-- Select swimmer / coach --</option>
-                      {userOptions.filter((u) => u.type === "swimmer").length > 0 && (
-                        <optgroup label="Swimmers">
-                          {userOptions.filter((u) => u.type === "swimmer").map((u) => (
-                            <option key={`swimmer:${u.id}`} value={`swimmer:${u.id}`}>{u.name}</option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {userOptions.filter((u) => u.type === "coach").length > 0 && (
-                        <optgroup label="Coaches">
-                          {userOptions.filter((u) => u.type === "coach").map((u) => (
-                            <option key={`coach:${u.id}`} value={`coach:${u.id}`}>{u.name}</option>
-                          ))}
-                        </optgroup>
-                      )}
-                    </select>
-                  </div>
-                )}
-                <button
-                  aria-label="Press to attend"
-                  disabled={isLogging}
-                  className="grid h-28 w-28 place-items-center rounded-full bg-[#168dab] text-[74px] font-light leading-none text-white shadow-[0_8px_20px_rgba(22,141,171,0.12)] transition hover:scale-[1.02] hover:bg-[#107f9b] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#168dab] focus-visible:ring-offset-4 disabled:opacity-60"
-                  onClick={addAttendance}
-                  type="button"
-                >
-                  <span className="-mt-2">{isLogging ? "..." : "+"}</span>
-                </button>
-                <p className="mt-3 text-[14px] font-black">Press to attend</p>
-                {errorMsg && <p className="mt-2 max-w-[200px] text-center text-xs font-bold text-red-600">{errorMsg}</p>}
-              </div>
+            {/* ── الصف العلوي: Time + Day ── */}
+            <div className="flex flex-wrap items-center gap-4 md:gap-8">
+              <InfoBox label="Time" value={now.displayTime} />
+              <InfoBox label="Day"  value={now.fullDate} />
             </div>
 
+            {/* ── منطقة الـ Dropdown + زرار الـ + ── */}
+            <div className="mt-6 flex flex-col items-center gap-3">
+              {isManager && (
+                <div className="w-full max-w-[320px]">
+                  <label className="mb-1 block text-center text-[13px] font-black">Select User</label>
+                  <select
+                    value={selectedUserId === "" ? "" : `${selectedUserType}:${selectedUserId}`}
+                    onChange={(e) => {
+                      if (!e.target.value) { setSelectedUserId(""); setSelectedUserType(""); return; }
+                      const [type, id] = e.target.value.split(":");
+                      setSelectedUserType(type as "swimmer" | "coach");
+                      setSelectedUserId(Number(id));
+                    }}
+                    className="h-10 w-full rounded-full border border-black/20 bg-white px-4 text-[13px] font-bold outline-none focus:border-[#168dab] focus:ring-2 focus:ring-[#168dab]/20"
+                  >
+                    <option value="">-- Select swimmer / coach --</option>
+                    {userOptions.filter((u) => u.type === "swimmer").length > 0 && (
+                      <optgroup label="Swimmers">
+                        {userOptions.filter((u) => u.type === "swimmer").map((u) => (
+                          <option key={`swimmer:${u.id}`} value={`swimmer:${u.id}`}>{u.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {userOptions.filter((u) => u.type === "coach").length > 0 && (
+                      <optgroup label="Coaches">
+                        {userOptions.filter((u) => u.type === "coach").map((u) => (
+                          <option key={`coach:${u.id}`} value={`coach:${u.id}`}>{u.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </div>
+              )}
+              <button
+                aria-label="Press to attend"
+                disabled={isLogging}
+                className="grid h-28 w-28 place-items-center rounded-full bg-[#168dab] text-[74px] font-light leading-none text-white shadow-[0_8px_20px_rgba(22,141,171,0.12)] transition hover:scale-[1.02] hover:bg-[#107f9b] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#168dab] focus-visible:ring-offset-4 disabled:opacity-60"
+                onClick={addAttendance}
+                type="button"
+              >
+                <span className="-mt-2">{isLogging ? "..." : "+"}</span>
+              </button>
+              <p className="text-[14px] font-black">Press to attend</p>
+              {errorMsg && <p className="max-w-[240px] text-center text-xs font-bold text-red-600">{errorMsg}</p>}
+            </div>
+
+            {/* ── الجدول ── */}
             <div
-              className="mx-auto mt-7 h-[250px] max-w-full overflow-hidden bg-[#d9d9d9] md:mx-0 md:mt-0"
+              className="mx-auto mt-6 h-[250px] max-w-full overflow-hidden bg-[#d9d9d9] md:mx-0"
               style={{ width: "min(722px, calc(100vw - 40px))" }}
             >
               <div className="grid h-[50px] grid-cols-4 items-center border-b border-black/60 text-[14px] font-black">
-                <span className="pl-5">id</span>
+                <span className="pl-5">{isManager ? "Name" : "id"}</span>
                 <span className="text-center">Day</span>
                 <span className="text-center">Month</span>
                 <span className="text-center">State</span>
@@ -297,7 +306,7 @@ export function AttendanceScreen() {
               <div className="max-h-[200px] overflow-y-auto text-[13px] font-black">
                 {rows.map((row) => (
                   <div className="grid h-10 grid-cols-4 items-center border-b border-black/10" key={row.id}>
-                    <span className="pl-5">{row.id}</span>
+                    <span className="pl-5 truncate pr-1">{isManager ? (row.userName || row.id) : row.id}</span>
                     <span className="text-center">{row.day}</span>
                     <span className="text-center">{row.month}</span>
                     <span className="text-center">{row.state}</span>
