@@ -23,6 +23,12 @@ const dayMap: Record<string, string> = {
   Wed: "Wed", Thu: "Thu", Fri: "Fri",
 };
 
+// Map للتحويل من اسم اليوم المختصر للاسم الكامل عشان الباك إند
+const fullDayMap: Record<string, string> = {
+  Sat: "Saturday", Sun: "Sunday", Mon: "Monday", Tue: "Tuesday",
+  Wed: "Wednesday", Thu: "Thursday", Fri: "Friday"
+};
+
 // ==========================================
 // MANAGER MENU
 // ==========================================
@@ -230,38 +236,76 @@ export function ManagerHomeScreen() {
 export function TeamsTableScreen() {
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
+  const [coaches, setCoaches] = useState<any[]>([]); // عشان نربط الاسم بالـ ID
   const [isLoading, setIsLoading] = useState(true);
+  const [draggedItem, setDraggedItem] = useState<any>(null); // للـ Drag & Drop
 
   useEffect(() => {
-    async function fetchTeams() {
+    async function fetchData() {
       try {
-        const res = await TeamsAPI.getAll();
-        const rawTeams = Array.isArray(res) ? res : res?.data?.teams || res?.data || [];
+        const [teamsRes, coachesRes] = await Promise.all([
+          TeamsAPI.getAll().catch(() => null),
+          CoachAPI.getList().catch(() => []),
+        ]);
+        const rawTeams = Array.isArray(teamsRes) ? teamsRes : teamsRes?.data?.teams || teamsRes?.data || [];
         setData(rawTeams);
+
+        const rawCoaches = Array.isArray(coachesRes?.data?.users) ? coachesRes.data.users : coachesRes?.data || coachesRes || [];
+        setCoaches(Array.isArray(rawCoaches) ? rawCoaches : []);
       } catch (err) {
         console.error(err);
       } finally {
         setIsLoading(false);
       }
     }
-    fetchTeams();
+    fetchData();
   }, []);
 
   const handleChange = (id: number, field: string, value: string) => {
     setData((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   };
 
+  // ✅ هاندلر الدروب (تغيير اليوم أوتوماتيك)
+  const handleDrop = (e: React.DragEvent, targetDayShort: string) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+    
+    const targetDayFull = fullDayMap[targetDayShort] || targetDayShort;
+    setData((prev) => prev.map((item) => (item.id === draggedItem.id ? { ...item, day: targetDayFull } : item)));
+    setDraggedItem(null);
+  };
+
   const handleSave = async (item: any) => {
     try {
-      // ✅ تم التصحيح إلى update
+      let finalCoachId = item.coach_id;
+
+      // ✅ حل مشكلة السيف: لو الاسم اتغير، هنجيب الـ ID بتاعه من لستة الكباتن
+      if (item.coach_name) {
+        const matchedCoach = coaches.find((c: any) => {
+          const cName = `${c.first_name} ${c.last_name || ''}`.trim().toLowerCase();
+          return cName === item.coach_name.toLowerCase().trim();
+        });
+        if (matchedCoach) {
+          finalCoachId = matchedCoach.id || matchedCoach._id;
+        }
+      }
+
+      // بنجهز الداتا اللي هتروح للباك إند (لازم Day كامل و coach_id)
+      const payload = {
+        team_name: item.team_name,
+        time: item.time,
+        day: fullDayMap[item.day] || item.day,
+        coach_id: finalCoachId
+      };
+
       if (TeamsAPI.update) {
-        await TeamsAPI.update(item.id, item);
+        await TeamsAPI.update(item.id, payload);
         alert("Team updated successfully!");
       } else {
         alert("TeamsAPI.update is not defined yet.");
       }
     } catch (err) {
-      alert("Failed to update team");
+      alert("Failed to update team. Make sure coach name is correct.");
     }
   };
 
@@ -278,7 +322,7 @@ export function TeamsTableScreen() {
     <main className="min-h-screen bg-[#fffef8] px-[5vw] py-[6vh] text-black max-md:px-[4vw]">
       <BackButton onClick={() => router.push("/manager/home")} />
       <section className="mx-auto flex min-h-[88vh] w-full max-w-[920px] flex-col justify-center pt-12 md:pt-0">
-        <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Edit the teams table</h1>
+        <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Edit the teams table (Drag to move days)</h1>
         <div className="relative overflow-x-auto overflow-y-hidden border border-[#9d9d9d] bg-white">
           <table className="relative z-10 h-[min(52vh,500px)] min-h-[355px] w-full min-w-[720px] table-fixed border-collapse bg-transparent text-center">
             <colgroup>
@@ -306,15 +350,26 @@ export function TeamsTableScreen() {
                     {colDays.map((day) => {
                       const item = cellMap[day]?.[rowIndex];
                       return (
-                        <td key={`${day}-${rowIndex}`} className="border border-[#9d9d9d] bg-transparent p-1">
+                        <td 
+                          key={`${day}-${rowIndex}`} 
+                          className="border border-[#9d9d9d] bg-transparent p-1 align-top transition-colors hover:bg-gray-50"
+                          onDragOver={(e) => e.preventDefault()} // لازم عشان يسمح بالدروب
+                          onDrop={(e) => handleDrop(e, day)}
+                        >
                           {item ? (
-                            <div className="flex flex-col gap-1">
-                              <input className="w-full rounded border bg-gray-50 text-center text-[clamp(7px,0.8vw,10px)] font-bold" value={item.team_name || ""} onChange={(e) => handleChange(item.id, "team_name", e.target.value)} />
-                              <input className="w-full rounded border bg-gray-50 text-center text-[clamp(7px,0.8vw,10px)]" value={item.time || ""} onChange={(e) => handleChange(item.id, "time", e.target.value)} />
-                              <input className="w-full rounded border bg-gray-50 text-center text-[clamp(7px,0.8vw,10px)]" value={item.coach_name || ""} onChange={(e) => handleChange(item.id, "coach_name", e.target.value)} />
+                            <div 
+                              draggable 
+                              onDragStart={() => setDraggedItem(item)}
+                              className="flex cursor-grab flex-col gap-1 rounded bg-white p-1 shadow hover:shadow-md active:cursor-grabbing"
+                            >
+                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)] font-bold" value={item.team_name || ""} onChange={(e) => handleChange(item.id, "team_name", e.target.value)} />
+                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.time || ""} onChange={(e) => handleChange(item.id, "time", e.target.value)} />
+                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.coach_name || ""} onChange={(e) => handleChange(item.id, "coach_name", e.target.value)} placeholder="Coach Name" />
                               <button onClick={() => handleSave(item)} className="mt-1 rounded bg-[#108bad] py-0.5 text-[8px] text-white hover:bg-[#0d7c9a]">Save</button>
                             </div>
-                          ) : null}
+                          ) : (
+                            <div className="h-full min-h-[60px] w-full"></div> // مساحة فاضية عشان تقدر ترمي فيها
+                          )}
                         </td>
                       );
                     })}
@@ -336,38 +391,76 @@ export function TeamsTableScreen() {
 export function ClassesTableScreen() {
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
+  const [coaches, setCoaches] = useState<any[]>([]); // عشان نربط الاسم بالـ ID
   const [isLoading, setIsLoading] = useState(true);
+  const [draggedItem, setDraggedItem] = useState<any>(null); // للـ Drag & Drop
 
   useEffect(() => {
-    async function fetchClasses() {
+    async function fetchData() {
       try {
-        const res = await ClassesAPI.getAll();
-        const rawClasses = Array.isArray(res) ? res : res?.data?.classes || res?.data || [];
+        const [classesRes, coachesRes] = await Promise.all([
+          ClassesAPI.getAll().catch(() => null),
+          CoachAPI.getList().catch(() => []),
+        ]);
+        const rawClasses = Array.isArray(classesRes) ? classesRes : classesRes?.data?.classes || classesRes?.data || [];
         setData(rawClasses);
+
+        const rawCoaches = Array.isArray(coachesRes?.data?.users) ? coachesRes.data.users : coachesRes?.data || coachesRes || [];
+        setCoaches(Array.isArray(rawCoaches) ? rawCoaches : []);
       } catch (err) {
         console.error(err);
       } finally {
         setIsLoading(false);
       }
     }
-    fetchClasses();
+    fetchData();
   }, []);
 
   const handleChange = (id: number, field: string, value: string) => {
     setData((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   };
 
+  // ✅ هاندلر الدروب
+  const handleDrop = (e: React.DragEvent, targetDayShort: string) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+
+    const targetDayFull = fullDayMap[targetDayShort] || targetDayShort;
+    setData((prev) => prev.map((item) => (item.id === draggedItem.id ? { ...item, day: targetDayFull } : item)));
+    setDraggedItem(null);
+  };
+
   const handleSave = async (item: any) => {
     try {
-      // ✅ تم التصحيح إلى update
+      let finalCoachId = item.coach_id;
+
+      // ✅ حل مشكلة السيف: ترجمة الاسم لـ ID
+      if (item.coach_name) {
+        const matchedCoach = coaches.find((c: any) => {
+          const cName = `${c.first_name} ${c.last_name || ''}`.trim().toLowerCase();
+          return cName === item.coach_name.toLowerCase().trim();
+        });
+        if (matchedCoach) {
+          finalCoachId = matchedCoach.id || matchedCoach._id;
+        }
+      }
+
+      // بنجهز الداتا للباك إند
+      const payload = {
+        class_level: item.class_level,
+        time: item.time,
+        day: fullDayMap[item.day] || item.day,
+        coach_id: finalCoachId
+      };
+
       if (ClassesAPI.update) {
-        await ClassesAPI.update(item.id, item);
+        await ClassesAPI.update(item.id, payload);
         alert("Class updated successfully!");
       } else {
         alert("ClassesAPI.update is not defined yet.");
       }
     } catch (err) {
-      alert("Failed to update class");
+      alert("Failed to update class. Make sure coach name is correct.");
     }
   };
 
@@ -384,7 +477,7 @@ export function ClassesTableScreen() {
     <main className="min-h-screen bg-[#fffef8] px-[5vw] py-[6vh] text-black max-md:px-[4vw]">
       <BackButton onClick={() => router.push("/manager/home")} />
       <section className="mx-auto flex min-h-[88vh] w-full max-w-[920px] flex-col justify-center pt-12 md:pt-0">
-        <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Edit the classes table</h1>
+        <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Edit the classes table (Drag to move days)</h1>
         <div className="relative overflow-x-auto overflow-y-hidden border border-[#9d9d9d] bg-white">
           <table className="relative z-10 h-[min(52vh,500px)] min-h-[355px] w-full min-w-[720px] table-fixed border-collapse bg-transparent text-center">
             <colgroup>
@@ -412,15 +505,26 @@ export function ClassesTableScreen() {
                     {colDays.map((day) => {
                       const item = cellMap[day]?.[rowIndex];
                       return (
-                        <td key={`${day}-${rowIndex}`} className="border border-[#9d9d9d] bg-transparent p-1">
+                        <td 
+                          key={`${day}-${rowIndex}`} 
+                          className="border border-[#9d9d9d] bg-transparent p-1 align-top transition-colors hover:bg-gray-50"
+                          onDragOver={(e) => e.preventDefault()} // لازم للدروب
+                          onDrop={(e) => handleDrop(e, day)}
+                        >
                           {item ? (
-                            <div className="flex flex-col gap-1">
-                              <input className="w-full rounded border bg-gray-50 text-center text-[clamp(7px,0.8vw,10px)] font-bold" value={item.class_level || ""} onChange={(e) => handleChange(item.id, "class_level", e.target.value)} />
-                              <input className="w-full rounded border bg-gray-50 text-center text-[clamp(7px,0.8vw,10px)]" value={item.time || ""} onChange={(e) => handleChange(item.id, "time", e.target.value)} />
-                              <input className="w-full rounded border bg-gray-50 text-center text-[clamp(7px,0.8vw,10px)]" value={item.coach_name || ""} onChange={(e) => handleChange(item.id, "coach_name", e.target.value)} />
+                            <div 
+                              draggable 
+                              onDragStart={() => setDraggedItem(item)}
+                              className="flex cursor-grab flex-col gap-1 rounded bg-white p-1 shadow hover:shadow-md active:cursor-grabbing"
+                            >
+                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)] font-bold" value={item.class_level || ""} onChange={(e) => handleChange(item.id, "class_level", e.target.value)} />
+                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.time || ""} onChange={(e) => handleChange(item.id, "time", e.target.value)} />
+                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.coach_name || ""} onChange={(e) => handleChange(item.id, "coach_name", e.target.value)} placeholder="Coach Name" />
                               <button onClick={() => handleSave(item)} className="mt-1 rounded bg-[#108bad] py-0.5 text-[8px] text-white hover:bg-[#0d7c9a]">Save</button>
                             </div>
-                          ) : null}
+                          ) : (
+                            <div className="h-full min-h-[60px] w-full"></div> // مساحة فاضية ترمي فيها
+                          )}
                         </td>
                       );
                     })}
