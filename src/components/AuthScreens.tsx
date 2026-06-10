@@ -79,6 +79,7 @@ export function LoginSocialSection() {
 }
 
 export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => void; onSignUp: () => void }) {
+  const router = useRouter();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<"error" | "success" | "info">("info");
@@ -122,6 +123,13 @@ export function LoginForm({ onSignIn, onSignUp }: { onSignIn: (role: string) => 
 
       setMessage("Login successful!");
       setMessageTone("success");
+
+      // ✅ replace بدل push عشان /login و /roles ميبقوش في الـ history
+      if (role === "coach")        router.replace("/coach/home");
+      else if (role === "swimmer") router.replace("/swimmer/home");
+      else if (role === "manager") router.replace("/manager/home");
+      else                         router.replace("/roles");
+
       onSignIn(role);
     } catch (error: any) {
       setMessage(error.message || "Login failed. Please check your credentials.");
@@ -348,10 +356,12 @@ export function SettingsScreen() {
     ...(isSwimmer ? [{ label: "Booking", onClick: () => router.push("/booking") }] : []),
     // Edit profile → للـ Swimmer والـ Coach
     ...(isSwimmer || isCoach ? [{ label: "Edit profile", onClick: () => router.push("/profile/edit") }] : []),
-    // Attendance → للـ Swimmer والـ Coach
-    ...(isSwimmer || isCoach ? [{ label: "Attendance", onClick: () => router.push("/attendance") }] : []),
+    // Attendance → للـ Swimmer والـ Coach والـ Manager (كل role يشوف خاصته)
+    { label: "Attendance", onClick: () => router.push("/attendance") },
     // Delete account → للكل
     { label: "Delete account", onClick: handleDeleteAccount },
+    // Logout → للكل دايمًا
+    { label: "Logout", onClick: () => { resetSignupDraft(); clearSession(); router.replace("/login"); } },
   ];
 
   return (

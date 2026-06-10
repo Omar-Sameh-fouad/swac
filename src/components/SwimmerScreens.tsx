@@ -51,7 +51,7 @@ export function SwimmerHomeScreen() {
   return (
     <main className="min-h-screen bg-[#fffef8] text-black">
       <section className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-[clamp(24px,7vw,88px)] py-[clamp(82px,12vh,116px)]">
-        <BackButton onClick={() => router.push("/roles")} />
+        <BackButton onClick={() => router.push("/settings")} />
         <button type="button" onClick={() => router.push("/profile")} className="absolute right-[clamp(24px,7vw,88px)] top-[clamp(28px,6vh,58px)] flex h-12 w-12 items-center justify-center rounded-full bg-[#b8c2c2] text-xl font-black text-white" aria-label="Open profile"><SmallProfileIcon /></button>
         <div className="max-w-2xl">
           <p className="text-[clamp(12px,1.1vw,14px)] font-black uppercase text-[#108bad]">Swimmer dashboard</p>

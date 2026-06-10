@@ -5,11 +5,49 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { BackButton } from "./SharedUI";
-import { getSessionUser, ClassesAPI, TeamsAPI, CoachAPI } from "@/core/api";
+import { getSessionUser, ClassesAPI, TeamsAPI, CoachAPI, clearSession } from "@/core/api";
+import { useSignupDraft } from "@/core/SignupContext";
+
+function ArrowRightIcon() { return <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /></svg>; }
+function BackArrowIcon() { return <svg viewBox="0 0 24 24" className="h-[55%] w-[55%]" aria-hidden><path d="M14.5 6 8.5 12l6 6" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.6" /></svg>; }
+function LogoutIcon() { return <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden><path d="M13 5h5v14h-5M8 8l-4 4 4 4M4 12h11" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /></svg>; }
 
 // ==========================================
-// MANAGER HOME & TABLES
+// MANAGER MENU
 // ==========================================
+export function ManagerMenuScreen() {
+  const router = useRouter();
+  const { resetSignupDraft } = useSignupDraft();
+
+  return (
+    <main className="min-h-screen bg-[#fffef8] text-black">
+      <section className="relative mx-auto grid min-h-screen w-full max-w-[1728px] grid-cols-[62%_38%] px-[clamp(28px,4vw,68px)] py-[clamp(34px,5.6vh,60px)] max-lg:grid-cols-1 max-lg:gap-10 max-md:px-5">
+        <button type="button" onClick={() => router.push("/manager/home")} aria-label="Back to manager home" className="absolute left-[clamp(28px,3.7vw,70px)] top-[clamp(26px,5.4vh,58px)] z-30 flex h-[54px] w-[58px] items-center justify-center rounded-full bg-[#108bad] text-white shadow-[0_10px_18px_-14px_rgba(0,0,0,0.9)] transition hover:bg-[#0d7c9a]"><BackArrowIcon /></button>
+        <div className="flex min-h-[calc(100vh-120px)] flex-col justify-center pt-16 max-lg:min-h-0">
+          <h1 className="ml-[clamp(72px,8vw,100px)] text-[clamp(30px,2.3vw,36px)] font-black leading-none max-md:ml-0">Menu</h1>
+          <div className="relative mt-10 h-[min(42vw,620px)] min-h-[320px] w-full max-lg:h-[48vw] max-md:h-[62vw] max-md:min-h-[260px]">
+            <Image src="/images/swimmer-role-new.jpg" alt="Swimmer in the pool" fill priority sizes="(max-width: 768px) 92vw, (max-width: 1024px) 80vw, 58vw" className="object-contain object-center opacity-85" />
+          </div>
+        </div>
+        <div className="flex min-h-[calc(100vh-120px)] items-center border-l-4 border-black/45 pl-[clamp(54px,7vw,150px)] max-lg:min-h-0 max-lg:border-l-0 max-lg:border-t-2 max-lg:py-10 max-lg:pl-0">
+          <div className="flex w-full flex-col items-center gap-8">
+            <button type="button" onClick={() => router.push("/manager/home")} className="flex h-[82px] w-[282px] items-center justify-center gap-3 rounded-[18px] bg-white text-[24px] font-medium text-black shadow-[0_10px_18px_-15px_rgba(0,0,0,0.9)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_22px_-16px_rgba(0,0,0,0.9)] max-md:h-[64px] max-md:w-full max-md:max-w-[282px] max-md:text-[20px]"><span>Home</span><ArrowRightIcon /></button>
+            <button type="button" onClick={() => router.push("/settings")} className="flex h-[82px] w-[282px] items-center justify-center gap-3 rounded-[18px] bg-white text-[24px] font-medium text-black shadow-[0_10px_18px_-15px_rgba(0,0,0,0.9)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_22px_-16px_rgba(0,0,0,0.9)] max-md:h-[64px] max-md:w-full max-md:max-w-[282px] max-md:text-[20px]"><span>Settings</span><ArrowRightIcon /></button>
+            <button
+              type="button"
+              onClick={() => { resetSignupDraft(); clearSession(); router.replace("/login"); }}
+              className="flex h-[82px] w-[282px] items-center justify-center gap-3 rounded-[18px] bg-white text-[24px] font-medium text-black shadow-[0_10px_18px_-15px_rgba(0,0,0,0.9)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_22px_-16px_rgba(0,0,0,0.9)] max-md:h-[64px] max-md:w-full max-md:max-w-[282px] max-md:text-[20px]"
+            >
+              <span className="text-red-600">Log out</span><span className="text-red-600"><LogoutIcon /></span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+
 const days = ["Day", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
 const dayMap: Record<string, string> = {
   Saturday: "Sat", Sunday: "Sun", Monday: "Mon", Tuesday: "Tue",
@@ -160,7 +198,7 @@ export function ManagerHomeScreen() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#fffef8] text-black">
-      <button type="button" onClick={() => router.push("/roles")} aria-label="Open menu" className="absolute left-[clamp(20px,4vw,48px)] top-[clamp(26px,5vh,45px)] z-30 flex h-[clamp(36px,4.8vw,48px)] w-[clamp(36px,4.8vw,48px)] items-center justify-center rounded-full bg-[#108bad] text-white shadow-[0_9px_18px_-14px_rgba(0,0,0,0.8)] transition hover:bg-[#0d7c9a]"><MenuIcon /></button>
+      <button type="button" onClick={() => router.push("/manager/menu")} aria-label="Open menu" className="absolute left-[clamp(20px,4vw,48px)] top-[clamp(26px,5vh,45px)] z-30 flex h-[clamp(36px,4.8vw,48px)] w-[clamp(36px,4.8vw,48px)] items-center justify-center rounded-full bg-[#108bad] text-white shadow-[0_9px_18px_-14px_rgba(0,0,0,0.8)] transition hover:bg-[#0d7c9a]"><MenuIcon /></button>
       <button type="button" onClick={() => router.push("/profile")} aria-label="Manager profile" className="absolute right-[clamp(20px,4.5vw,54px)] top-[clamp(27px,5vh,45px)] z-30 flex h-[clamp(31px,4.2vw,43px)] w-[clamp(31px,4.2vw,43px)] items-center justify-center rounded-full bg-[#b8c2c2] text-white"><ProfileIcon /></button>
 
       <section className="mx-auto min-h-screen w-full px-[clamp(12px,6.8vw,78px)] py-[clamp(52px,8.2vh,84px)]">
