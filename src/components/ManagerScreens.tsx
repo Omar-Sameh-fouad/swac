@@ -23,7 +23,6 @@ const dayMap: Record<string, string> = {
   Wed: "Wed", Thu: "Thu", Fri: "Fri",
 };
 
-// Map للتحويل من اسم اليوم المختصر للاسم الكامل عشان الباك إند
 const fullDayMap: Record<string, string> = {
   Sat: "Saturday", Sun: "Sunday", Mon: "Monday", Tue: "Tuesday",
   Wed: "Wednesday", Thu: "Thursday", Fri: "Friday"
@@ -261,8 +260,9 @@ export function TeamsTableScreen() {
     fetchData();
   }, []);
 
-  const handleChange = (id: number, field: string, value: string) => {
-    setData((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+  // ✅ دعم الـ id كرقم أو نص لضمان التحديث صح بدون ما يفقد Focus
+  const handleChange = (id: number | string, field: string, value: string) => {
+    setData((prev) => prev.map((item) => ((item.id || item._id) === id ? { ...item, [field]: value } : item)));
   };
 
   const handleDrop = (e: React.DragEvent, targetDayShort: string) => {
@@ -270,7 +270,7 @@ export function TeamsTableScreen() {
     if (!draggedItem) return;
     
     const targetDayFull = fullDayMap[targetDayShort] || targetDayShort;
-    setData((prev) => prev.map((item) => (item.id === draggedItem.id ? { ...item, day: targetDayFull } : item)));
+    setData((prev) => prev.map((item) => ((item.id || item._id) === (draggedItem.id || draggedItem._id) ? { ...item, day: targetDayFull } : item)));
     setDraggedItem(null);
   };
 
@@ -294,7 +294,6 @@ export function TeamsTableScreen() {
         }
       }
 
-      // ✅ رسالة التنبيه القوية لو الكابتن مش موجود
       if (!finalCoachId) {
         alert(`⚠️ Failed to Save!\nWe couldn't find a Coach ID for "${item.coach_name}". Please make sure the name is spelled exactly as it is in the system.`);
         return;
@@ -304,10 +303,8 @@ export function TeamsTableScreen() {
         team_name: item.team_name,
         time: item.time,
         day: fullDayMap[item.day] || item.day,
-        coach_id: Number(finalCoachId) // ضمان إنه يتبعت كرقم
+        coach_id: Number(finalCoachId) 
       };
-
-      console.log("Sending Payload:", payload); // هتساعدنا جداً لو حصلت مشكلة
 
       if (TeamsAPI.update) {
         await TeamsAPI.update(targetId, payload);
@@ -317,7 +314,7 @@ export function TeamsTableScreen() {
       }
     } catch (err: any) {
       console.error(err);
-      alert("Failed to update team. Open browser console (F12) for details.");
+      alert("Failed to update team.");
     }
   };
 
@@ -334,7 +331,7 @@ export function TeamsTableScreen() {
     <main className="min-h-screen bg-[#fffef8] px-[5vw] py-[6vh] text-black max-md:px-[4vw]">
       <BackButton onClick={() => router.push("/manager/home")} />
       <section className="mx-auto flex min-h-[88vh] w-full max-w-[920px] flex-col justify-center pt-12 md:pt-0">
-        <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Edit the teams table (Drag to move days)</h1>
+        <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Edit the teams table</h1>
         <div className="relative overflow-x-auto overflow-y-hidden border border-[#9d9d9d] bg-white">
           <table className="relative z-10 h-[min(52vh,500px)] min-h-[355px] w-full min-w-[720px] table-fixed border-collapse bg-transparent text-center">
             <colgroup>
@@ -369,14 +366,22 @@ export function TeamsTableScreen() {
                           onDrop={(e) => handleDrop(e, day)}
                         >
                           {item ? (
-                            <div 
-                              draggable 
-                              onDragStart={() => setDraggedItem(item)}
-                              className="flex cursor-grab flex-col gap-1 rounded bg-white p-1 shadow hover:shadow-md active:cursor-grabbing"
-                            >
-                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)] font-bold" value={item.team_name || ""} onChange={(e) => handleChange(item.id, "team_name", e.target.value)} />
-                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.time || ""} onChange={(e) => handleChange(item.id, "time", e.target.value)} />
-                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.coach_name || ""} onChange={(e) => handleChange(item.id, "coach_name", e.target.value)} placeholder="Coach Name" />
+                            // ✅ الحل الجذري: شلنا الـ draggable من الكارت وحطيناه في زرار مخصص فوق
+                            <div key={item.id || item._id} className="flex flex-col gap-1 rounded bg-white p-1 shadow hover:shadow-md">
+                              
+                              {/* Drag Handle */}
+                              <div 
+                                draggable 
+                                onDragStart={(e) => { e.stopPropagation(); setDraggedItem(item); }}
+                                className="cursor-grab active:cursor-grabbing rounded bg-[#108bad]/10 py-0.5 text-center text-[8px] font-black text-[#108bad] hover:bg-[#108bad]/20"
+                                title="Drag to move to another day"
+                              >
+                                ✥ Drag
+                              </div>
+
+                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)] font-bold" value={item.team_name || ""} onChange={(e) => handleChange(item.id || item._id, "team_name", e.target.value)} />
+                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.time || ""} onChange={(e) => handleChange(item.id || item._id, "time", e.target.value)} />
+                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.coach_name || ""} onChange={(e) => handleChange(item.id || item._id, "coach_name", e.target.value)} placeholder="Coach Name" />
                               <button onClick={() => handleSave(item)} className="mt-1 rounded bg-[#108bad] py-0.5 text-[8px] text-white hover:bg-[#0d7c9a]">Save</button>
                             </div>
                           ) : (
@@ -428,8 +433,8 @@ export function ClassesTableScreen() {
     fetchData();
   }, []);
 
-  const handleChange = (id: number, field: string, value: string) => {
-    setData((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+  const handleChange = (id: number | string, field: string, value: string) => {
+    setData((prev) => prev.map((item) => ((item.id || item._id) === id ? { ...item, [field]: value } : item)));
   };
 
   const handleDrop = (e: React.DragEvent, targetDayShort: string) => {
@@ -437,7 +442,7 @@ export function ClassesTableScreen() {
     if (!draggedItem) return;
 
     const targetDayFull = fullDayMap[targetDayShort] || targetDayShort;
-    setData((prev) => prev.map((item) => (item.id === draggedItem.id ? { ...item, day: targetDayFull } : item)));
+    setData((prev) => prev.map((item) => ((item.id || item._id) === (draggedItem.id || draggedItem._id) ? { ...item, day: targetDayFull } : item)));
     setDraggedItem(null);
   };
 
@@ -461,7 +466,6 @@ export function ClassesTableScreen() {
         }
       }
 
-      // ✅ رسالة التنبيه القوية لو الكابتن مش موجود
       if (!finalCoachId) {
         alert(`⚠️ Failed to Save!\nWe couldn't find a Coach ID for "${item.coach_name}". Please make sure the name is spelled exactly as it is in the system.`);
         return;
@@ -471,10 +475,8 @@ export function ClassesTableScreen() {
         class_level: item.class_level,
         time: item.time,
         day: fullDayMap[item.day] || item.day,
-        coach_id: Number(finalCoachId) // ضمان إنه يتبعت كرقم
+        coach_id: Number(finalCoachId)
       };
-
-      console.log("Sending Payload:", payload); // هتساعدنا جداً لو حصلت مشكلة
 
       if (ClassesAPI.update) {
         await ClassesAPI.update(targetId, payload);
@@ -484,7 +486,7 @@ export function ClassesTableScreen() {
       }
     } catch (err: any) {
       console.error(err);
-      alert("Failed to update class. Open browser console (F12) for details.");
+      alert("Failed to update class.");
     }
   };
 
@@ -501,7 +503,7 @@ export function ClassesTableScreen() {
     <main className="min-h-screen bg-[#fffef8] px-[5vw] py-[6vh] text-black max-md:px-[4vw]">
       <BackButton onClick={() => router.push("/manager/home")} />
       <section className="mx-auto flex min-h-[88vh] w-full max-w-[920px] flex-col justify-center pt-12 md:pt-0">
-        <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Edit the classes table (Drag to move days)</h1>
+        <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Edit the classes table</h1>
         <div className="relative overflow-x-auto overflow-y-hidden border border-[#9d9d9d] bg-white">
           <table className="relative z-10 h-[min(52vh,500px)] min-h-[355px] w-full min-w-[720px] table-fixed border-collapse bg-transparent text-center">
             <colgroup>
@@ -536,14 +538,21 @@ export function ClassesTableScreen() {
                           onDrop={(e) => handleDrop(e, day)}
                         >
                           {item ? (
-                            <div 
-                              draggable 
-                              onDragStart={() => setDraggedItem(item)}
-                              className="flex cursor-grab flex-col gap-1 rounded bg-white p-1 shadow hover:shadow-md active:cursor-grabbing"
-                            >
-                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)] font-bold" value={item.class_level || ""} onChange={(e) => handleChange(item.id, "class_level", e.target.value)} />
-                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.time || ""} onChange={(e) => handleChange(item.id, "time", e.target.value)} />
-                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.coach_name || ""} onChange={(e) => handleChange(item.id, "coach_name", e.target.value)} placeholder="Coach Name" />
+                            <div key={item.id || item._id} className="flex flex-col gap-1 rounded bg-white p-1 shadow hover:shadow-md">
+                              
+                              {/* Drag Handle */}
+                              <div 
+                                draggable 
+                                onDragStart={(e) => { e.stopPropagation(); setDraggedItem(item); }}
+                                className="cursor-grab active:cursor-grabbing rounded bg-[#108bad]/10 py-0.5 text-center text-[8px] font-black text-[#108bad] hover:bg-[#108bad]/20"
+                                title="Drag to move to another day"
+                              >
+                                ✥ Drag
+                              </div>
+
+                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)] font-bold" value={item.class_level || ""} onChange={(e) => handleChange(item.id || item._id, "class_level", e.target.value)} />
+                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.time || ""} onChange={(e) => handleChange(item.id || item._id, "time", e.target.value)} />
+                              <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.coach_name || ""} onChange={(e) => handleChange(item.id || item._id, "coach_name", e.target.value)} placeholder="Coach Name" />
                               <button onClick={() => handleSave(item)} className="mt-1 rounded bg-[#108bad] py-0.5 text-[8px] text-white hover:bg-[#0d7c9a]">Save</button>
                             </div>
                           ) : (
