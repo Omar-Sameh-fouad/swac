@@ -59,7 +59,7 @@ const dayMap: Record<string, string> = {
 function MenuIcon() { return <svg viewBox="0 0 24 24" className="h-[52%] w-[52%]" aria-hidden><path d="M6 8h12M6 12h12M6 16h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>; }
 function ProfileIcon() { return <svg viewBox="0 0 24 24" className="h-[68%] w-[68%]" aria-hidden><circle cx="12" cy="8.4" r="3.2" fill="white" /><path d="M5.8 19.2c.7-3.2 3-5 6.2-5s5.5 1.8 6.2 5" fill="white" /></svg>; }
 
-// ✅ جدول بيعرض داتا حقيقية — كل entry في صفه
+// ✅ جدول بيعرض داتا حقيقية متوزعة صح على الأيام زي الديزاين
 function LiveScheduleTable({
   title,
   rows,
@@ -85,8 +85,12 @@ function LiveScheduleTable({
     });
   });
 
-  const maxRows = Math.max(1, ...colDays.map((d) => cellMap[d]?.length ?? 0));
-  const displayRows = maxRows;
+  // بنحسب أكبر عدد من الصفوف محتاجينه، وبنخليه على الأقل 5 عشان يطابق الصورة
+  const maxDataRows = Math.max(0, ...colDays.map((d) => cellMap[d]?.length ?? 0));
+  const displayRows = Math.max(5, maxDataRows); 
+
+  // بنحدد الكلمة اللي هتظهر في أول عمود بناءً على نوع الجدول
+  const mainLabel = labelKey === "class_level" ? "Class Level" : "Team name";
 
   return (
     <section>
@@ -110,35 +114,32 @@ function LiveScheduleTable({
               </tr>
             ) : (
               Array.from({ length: displayRows }).map((_, rowIndex) => {
-                // نجيب أول cell موجودة في أي يوم عشان نعرضها في عمود Day
-                const firstCell = colDays.map((d) => cellMap[d]?.[rowIndex]).find(Boolean);
                 return (
-                <tr key={rowIndex}>
-                  <td className="h-[clamp(40px,5vh,55px)] border border-[#9d9d9d] bg-white/20 px-[clamp(3px,0.5vw,6px)] py-1 text-center align-middle text-[clamp(5px,0.65vw,9px)] font-bold leading-[1.6]">
-                    {firstCell ? (
-                      <>
-                        <span className="block font-black text-black">{firstCell.label}</span>
-                        <span className="block text-black/50">{firstCell.time}</span>
-                        <span className="block text-black/35">{firstCell.coachName}</span>
-                      </>
-                    ) : null}
-                  </td>
-                  {colDays.map((day) => {
-                    const cell = cellMap[day]?.[rowIndex];
-                    return (
-                      <td key={`${day}-${rowIndex}`} className="border border-[#9d9d9d] bg-transparent px-[clamp(3px,0.5vw,6px)] py-1 text-center align-middle text-[clamp(5px,0.65vw,9px)] font-bold leading-[1.6]">
-                        {cell ? (
-                          <>
-                            <span className="block font-black text-black">{cell.label}</span>
-                            <span className="block text-black/50">{cell.time}</span>
-                            <span className="block text-black/35">{cell.coachName}</span>
-                          </>
-                        ) : null}
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
+                  <tr key={rowIndex}>
+                    {/* ✅ العمود الأول: ثابت فيه العناوين زي الصورة */}
+                    <td className="border border-[#9d9d9d] bg-white/35 px-[1.3vw] py-1 text-left text-[clamp(7px,0.72vw,10px)] font-bold leading-[1.7]">
+                      <span className="block">{mainLabel}</span>
+                      <span className="block">time</span>
+                      <span className="block">coach name</span>
+                    </td>
+                    
+                    {/* ✅ باقي الأعمدة: الداتا بتتحط تحت اليوم بتاعها */}
+                    {colDays.map((day) => {
+                      const cell = cellMap[day]?.[rowIndex];
+                      return (
+                        <td key={`${day}-${rowIndex}`} className="h-[clamp(40px,5vh,55px)] border border-[#9d9d9d] bg-transparent px-[clamp(3px,0.5vw,6px)] py-1 text-center align-middle text-[clamp(6px,0.7vw,10px)] font-bold leading-[1.6]">
+                          {cell ? (
+                            <>
+                              <span className="block font-black text-black">{cell.label}</span>
+                              <span className="block text-black/50">{cell.time}</span>
+                              <span className="block text-black/35">{cell.coachName}</span>
+                            </>
+                          ) : null}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
               })
             )}
           </tbody>
