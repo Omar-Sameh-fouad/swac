@@ -1,6 +1,7 @@
+// مسار الملف: src/components/AttendanceScreen.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { AttendanceAPI, getSessionUser, UsersAPI } from "@/core/api";
 
@@ -104,6 +105,8 @@ export function AttendanceScreen() {
   const [rows, setRows] = useState<AttendanceRow[]>([]);
   const [isLogging, setIsLogging] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null); // المرجع الخاص بالتايمر
+
   const now = getNow();
 
   const sessionUser = getSessionUser();
@@ -118,6 +121,15 @@ export function AttendanceScreen() {
   const totalDays = rows.length;
   const attendedCount = rows.filter((r) => r.state === "Attend").length;
   const attendPercent = totalDays > 0 ? Math.round((attendedCount / totalDays) * 100) : 0;
+
+  // دالة لإظهار الرسالة لمدة 3 ثواني ثم إخفائها
+  const showTempError = (msg: string) => {
+    setErrorMsg(msg);
+    if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
+    errorTimeoutRef.current = setTimeout(() => {
+      setErrorMsg("");
+    }, 3000);
+  };
 
   useEffect(() => {
     if (!isManager) return;
@@ -189,7 +201,6 @@ export function AttendanceScreen() {
     fetchAttendance();
   }, [isManager, selectedUserId, selectedUserType, userOptions, sessionUser?.name]);
 
-  // تم تعديل الدالة لتقبل الحضور أو الغياب
   async function handleLog(status: "present" | "absent") {
     setIsLogging(true);
     setErrorMsg("");
@@ -197,26 +208,25 @@ export function AttendanceScreen() {
     const displayState = status === "present" ? "Attend" : "Absent";
 
     try {
-      // منع التسجيل أكتر من مرة في نفس اليوم لنفس الشخص
       const alreadyLogged = rows.some(
         (r) => r.day === now.day && r.month === now.month
       );
       if (alreadyLogged) {
-        setErrorMsg("Record already logged for today.");
+        showTempError("Record already logged for today.");
         setIsLogging(false);
         return;
       }
 
       if (isManager) {
         if (!selectedUserId || !selectedUserType) {
-          setErrorMsg("Please select a user first.");
+          showTempError("Please select a user first.");
           setIsLogging(false);
           return;
         }
         const payload = {
           user_id: selectedUserId,
           user_type: selectedUserType,
-          status: status, // تمرير الحالة هنا
+          status: status,
           date: new Date().toISOString().split("T")[0],
           time: now.time,
         };
@@ -228,13 +238,13 @@ export function AttendanceScreen() {
       }
 
       if (!userId) {
-        setErrorMsg("User not found. Please log out and log in again.");
+        showTempError("User not found. Please log out and log in again.");
         setIsLogging(false);
         return;
       }
       
       const payload = {
-        status: status, // تمرير الحالة هنا
+        status: status,
         date: new Date().toISOString().split("T")[0],
         time: now.time,
       };
@@ -248,7 +258,7 @@ export function AttendanceScreen() {
         state: displayState 
       }]);
     } catch (error: any) {
-      setErrorMsg(error.message || `Failed to log ${displayState.toLowerCase()}.`);
+      showTempError(error.message || `Failed to log ${displayState.toLowerCase()}.`);
     } finally {
       setIsLogging(false);
     }
@@ -276,7 +286,6 @@ export function AttendanceScreen() {
               <InfoBox label="Day"  value={now.fullDate} />
             </div>
 
-            {/* تم تحديث هذه المنطقة لإضافة زر الغياب */}
             <div className="mt-6 flex flex-col items-center gap-5">
               {isManager && (
                 <div className="w-full max-w-[320px]">
@@ -310,9 +319,8 @@ export function AttendanceScreen() {
                 </div>
               )}
 
-              {/* حاوية الأزرار الجديدة */}
               <div className="flex gap-8">
-                {/* زر الحضور */}
+                {/* Attend Button */}
                 <div className="flex flex-col items-center gap-2">
                   <button
                     aria-label="Press to attend"
@@ -326,7 +334,7 @@ export function AttendanceScreen() {
                   <p className="text-[14px] font-black">Attend</p>
                 </div>
 
-                {/* زر الغياب */}
+                {/* Absent Button */}
                 <div className="flex flex-col items-center gap-2">
                   <button
                     aria-label="Press for absent"
@@ -341,7 +349,10 @@ export function AttendanceScreen() {
                 </div>
               </div>
 
-              {errorMsg && <p className="max-w-[240px] text-center text-xs font-bold text-red-600">{errorMsg}</p>}
+              {/* Error Message with min-height to prevent UI shifting */}
+              <div className="min-h-[20px]">
+                {errorMsg && <p className="max-w-[240px] text-center text-[15px] font-bold text-red-600">{errorMsg}</p>}
+              </div>
             </div>
 
             <div
