@@ -238,6 +238,12 @@ export function TeamsTableScreen() {
   const [coaches, setCoaches] = useState<any[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const [draggedItem, setDraggedItem] = useState<any>(null); 
+  const [popup, setPopup] = useState<{ show: boolean; message: string; type: "success" | "error" }>({ show: false, message: "", type: "success" });
+
+  const showPopup = (message: string, type: "success" | "error" = "success") => {
+    setPopup({ show: true, message, type });
+    setTimeout(() => setPopup({ show: false, message: "", type: "success" }), 3000);
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -260,7 +266,6 @@ export function TeamsTableScreen() {
     fetchData();
   }, []);
 
-  // ✅ دعم الـ id كرقم أو نص لضمان التحديث صح بدون ما يفقد Focus
   const handleChange = (id: number | string, field: string, value: string) => {
     setData((prev) => prev.map((item) => ((item.id || item._id) === id ? { ...item, [field]: value } : item)));
   };
@@ -277,7 +282,7 @@ export function TeamsTableScreen() {
   const handleSave = async (item: any) => {
     try {
       const targetId = item.id || item._id;
-      if (!targetId) return alert("Error: Missing Team ID");
+      if (!targetId) return showPopup("Error: Missing Team ID", "error");
 
       let finalCoachId = item.coach_id || item.coachId || item.coach?.id || item.coach?._id;
 
@@ -295,7 +300,7 @@ export function TeamsTableScreen() {
       }
 
       if (!finalCoachId) {
-        alert(`⚠️ Failed to Save!\nWe couldn't find a Coach ID for "${item.coach_name}". Please make sure the name is spelled exactly as it is in the system.`);
+        showPopup(`Failed! We couldn't find a Coach ID for "${item.coach_name}".`, "error");
         return;
       }
 
@@ -308,13 +313,13 @@ export function TeamsTableScreen() {
 
       if (TeamsAPI.update) {
         await TeamsAPI.update(targetId, payload);
-        alert("Team updated successfully!");
+        showPopup("Team updated successfully!", "success");
       } else {
-        alert("TeamsAPI.update is not defined yet.");
+        showPopup("TeamsAPI.update is not defined yet.", "error");
       }
     } catch (err: any) {
       console.error(err);
-      alert("Failed to update team.");
+      showPopup("Failed to update team.", "error");
     }
   };
 
@@ -330,6 +335,19 @@ export function TeamsTableScreen() {
   return (
     <main className="min-h-screen bg-[#fffef8] px-[5vw] py-[6vh] text-black max-md:px-[4vw]">
       <BackButton onClick={() => router.push("/manager/home")} />
+      
+      {/* Custom Popup */}
+      {popup.show && (
+        <div className={`fixed bottom-10 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full px-6 py-3 text-sm font-bold text-white shadow-xl transition-all duration-300 ease-out animate-in slide-in-from-bottom-5 ${popup.type === "success" ? "bg-[#108bad]" : "bg-red-600"}`}>
+          {popup.type === "success" ? (
+             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+          ) : (
+             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+          )}
+          <span>{popup.message}</span>
+        </div>
+      )}
+
       <section className="mx-auto flex min-h-[88vh] w-full max-w-[920px] flex-col justify-center pt-12 md:pt-0">
         <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Edit the teams table</h1>
         <div className="relative overflow-x-auto overflow-y-hidden border border-[#9d9d9d] bg-white">
@@ -366,10 +384,7 @@ export function TeamsTableScreen() {
                           onDrop={(e) => handleDrop(e, day)}
                         >
                           {item ? (
-                            // ✅ الحل الجذري: شلنا الـ draggable من الكارت وحطيناه في زرار مخصص فوق
                             <div key={item.id || item._id} className="flex flex-col gap-1 rounded bg-white p-1 shadow hover:shadow-md">
-                              
-                              {/* Drag Handle */}
                               <div 
                                 draggable 
                                 onDragStart={(e) => { e.stopPropagation(); setDraggedItem(item); }}
@@ -378,7 +393,6 @@ export function TeamsTableScreen() {
                               >
                                 ✥ Drag
                               </div>
-
                               <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)] font-bold" value={item.team_name || ""} onChange={(e) => handleChange(item.id || item._id, "team_name", e.target.value)} />
                               <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.time || ""} onChange={(e) => handleChange(item.id || item._id, "time", e.target.value)} />
                               <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.coach_name || ""} onChange={(e) => handleChange(item.id || item._id, "coach_name", e.target.value)} placeholder="Coach Name" />
@@ -411,6 +425,12 @@ export function ClassesTableScreen() {
   const [coaches, setCoaches] = useState<any[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const [draggedItem, setDraggedItem] = useState<any>(null); 
+  const [popup, setPopup] = useState<{ show: boolean; message: string; type: "success" | "error" }>({ show: false, message: "", type: "success" });
+
+  const showPopup = (message: string, type: "success" | "error" = "success") => {
+    setPopup({ show: true, message, type });
+    setTimeout(() => setPopup({ show: false, message: "", type: "success" }), 3000);
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -449,7 +469,7 @@ export function ClassesTableScreen() {
   const handleSave = async (item: any) => {
     try {
       const targetId = item.id || item._id;
-      if (!targetId) return alert("Error: Missing Class ID");
+      if (!targetId) return showPopup("Error: Missing Class ID", "error");
 
       let finalCoachId = item.coach_id || item.coachId || item.coach?.id || item.coach?._id;
 
@@ -467,7 +487,7 @@ export function ClassesTableScreen() {
       }
 
       if (!finalCoachId) {
-        alert(`⚠️ Failed to Save!\nWe couldn't find a Coach ID for "${item.coach_name}". Please make sure the name is spelled exactly as it is in the system.`);
+        showPopup(`Failed! We couldn't find a Coach ID for "${item.coach_name}".`, "error");
         return;
       }
 
@@ -480,13 +500,13 @@ export function ClassesTableScreen() {
 
       if (ClassesAPI.update) {
         await ClassesAPI.update(targetId, payload);
-        alert("Class updated successfully!");
+        showPopup("Class updated successfully!", "success");
       } else {
-        alert("ClassesAPI.update is not defined yet.");
+        showPopup("ClassesAPI.update is not defined yet.", "error");
       }
     } catch (err: any) {
       console.error(err);
-      alert("Failed to update class.");
+      showPopup("Failed to update class.", "error");
     }
   };
 
@@ -502,6 +522,19 @@ export function ClassesTableScreen() {
   return (
     <main className="min-h-screen bg-[#fffef8] px-[5vw] py-[6vh] text-black max-md:px-[4vw]">
       <BackButton onClick={() => router.push("/manager/home")} />
+
+      {/* Custom Popup */}
+      {popup.show && (
+        <div className={`fixed bottom-10 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full px-6 py-3 text-sm font-bold text-white shadow-xl transition-all duration-300 ease-out animate-in slide-in-from-bottom-5 ${popup.type === "success" ? "bg-[#108bad]" : "bg-red-600"}`}>
+          {popup.type === "success" ? (
+             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+          ) : (
+             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+          )}
+          <span>{popup.message}</span>
+        </div>
+      )}
+
       <section className="mx-auto flex min-h-[88vh] w-full max-w-[920px] flex-col justify-center pt-12 md:pt-0">
         <h1 className="mb-[2.2vh] text-[clamp(16px,1.65vw,19px)] font-black text-[#108bad]">Edit the classes table</h1>
         <div className="relative overflow-x-auto overflow-y-hidden border border-[#9d9d9d] bg-white">
@@ -539,8 +572,6 @@ export function ClassesTableScreen() {
                         >
                           {item ? (
                             <div key={item.id || item._id} className="flex flex-col gap-1 rounded bg-white p-1 shadow hover:shadow-md">
-                              
-                              {/* Drag Handle */}
                               <div 
                                 draggable 
                                 onDragStart={(e) => { e.stopPropagation(); setDraggedItem(item); }}
@@ -549,7 +580,6 @@ export function ClassesTableScreen() {
                               >
                                 ✥ Drag
                               </div>
-
                               <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)] font-bold" value={item.class_level || ""} onChange={(e) => handleChange(item.id || item._id, "class_level", e.target.value)} />
                               <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.time || ""} onChange={(e) => handleChange(item.id || item._id, "time", e.target.value)} />
                               <input className="w-full rounded border bg-gray-50 p-0.5 text-center text-[clamp(7px,0.8vw,10px)]" value={item.coach_name || ""} onChange={(e) => handleChange(item.id || item._id, "coach_name", e.target.value)} placeholder="Coach Name" />
