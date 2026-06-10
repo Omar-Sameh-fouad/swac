@@ -71,13 +71,24 @@ function LiveScheduleTable({
                 <td colSpan={8} className="border border-[#9d9d9d] py-6 text-[clamp(8px,0.9vw,11px)] font-bold text-black/40">Loading...</td>
               </tr>
             ) : (
-              Array.from({ length: displayRows }).map((_, rowIndex) => (
+              Array.from({ length: displayRows }).map((_, rowIndex) => {
+                // نجيب أول cell موجودة في أي يوم عشان نعرضها في عمود Day
+                const firstCell = colDays.map((d) => cellMap[d]?.[rowIndex]).find(Boolean);
+                return (
                 <tr key={rowIndex}>
-                  <td className="h-[clamp(40px,5vh,55px)] border border-[#9d9d9d] bg-white/20" />
+                  <td className="h-[clamp(40px,5vh,55px)] border border-[#9d9d9d] bg-white/20 px-[clamp(3px,0.5vw,6px)] py-1 text-center align-middle text-[clamp(5px,0.65vw,9px)] font-bold leading-[1.6]">
+                    {firstCell ? (
+                      <>
+                        <span className="block font-black text-black">{firstCell.label}</span>
+                        <span className="block text-black/50">{firstCell.time}</span>
+                        <span className="block text-black/35">{firstCell.coachName}</span>
+                      </>
+                    ) : null}
+                  </td>
                   {colDays.map((day) => {
                     const cell = cellMap[day]?.[rowIndex];
                     return (
-                      <td key={`${day}-${rowIndex}`} className="border border-[#9d9d9d] bg-transparent px-[clamp(3px,0.5vw,6px)] py-1 text-left align-middle text-[clamp(5px,0.65vw,9px)] font-bold leading-[1.6]">
+                      <td key={`${day}-${rowIndex}`} className="border border-[#9d9d9d] bg-transparent px-[clamp(3px,0.5vw,6px)] py-1 text-center align-middle text-[clamp(5px,0.65vw,9px)] font-bold leading-[1.6]">
                         {cell ? (
                           <>
                             <span className="block font-black text-black">{cell.label}</span>
@@ -87,9 +98,10 @@ function LiveScheduleTable({
                         ) : null}
                       </td>
                     );
-                  })}
+
                 </tr>
-              ))
+              );
+              })
             )}
           </tbody>
         </table>
