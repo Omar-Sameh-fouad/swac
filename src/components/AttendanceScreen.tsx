@@ -131,10 +131,37 @@ export function AttendanceScreen() {
           UsersAPI.getSwimmers().catch(() => []),
           UsersAPI.getCoaches().catch(() => []),
         ]);
-        const swimmers: UserOption[] = (Array.isArray(swimmersRes) ? swimmersRes : swimmersRes?.swimmers ?? swimmersRes?.data ?? [])
-          .map((s: any) => ({ id: s.id, name: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || `Swimmer #${s.id}`, type: "swimmer" as const }));
-        const coaches: UserOption[] = (Array.isArray(coachesRes) ? coachesRes : coachesRes?.coaches ?? coachesRes?.data ?? [])
-          .map((c: any) => ({ id: c.id, name: `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() || `Coach #${c.id}`, type: "coach" as const }));
+
+        // ✅ استخراج الـ array من أي شكل للـ response
+        function extractList(res: any): any[] {
+          if (Array.isArray(res)) return res;
+          // جرب كل الـ keys الممكنة
+          for (const key of ["data", "users", "swimmers", "coaches", "list", "results"]) {
+            if (Array.isArray(res?.[key])) return res[key];
+          }
+          return [];
+        }
+
+        // ✅ استخراج الاسم من أي شكل للـ user object
+        function extractName(u: any, fallbackPrefix: string): string {
+          const full =
+            [u.first_name, u.last_name].filter(Boolean).join(" ") ||
+            u.name || u.full_name || u.username || u.email || "";
+          return full.trim() || `${fallbackPrefix} #${u.id}`;
+        }
+
+        const swimmers: UserOption[] = extractList(swimmersRes).map((s: any) => ({
+          id: s.id,
+          name: extractName(s, "Swimmer"),
+          type: "swimmer" as const,
+        }));
+
+        const coaches: UserOption[] = extractList(coachesRes).map((c: any) => ({
+          id: c.id,
+          name: extractName(c, "Coach"),
+          type: "coach" as const,
+        }));
+
         setUserOptions([...swimmers, ...coaches]);
       } catch { /* صامت */ }
     }
