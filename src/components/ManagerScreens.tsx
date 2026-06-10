@@ -47,7 +47,6 @@ export function ManagerMenuScreen() {
   );
 }
 
-
 const days = ["Day", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
 const dayMap: Record<string, string> = {
   Saturday: "Sat", Sunday: "Sun", Monday: "Mon", Tuesday: "Tue",
@@ -149,7 +148,7 @@ function LiveScheduleTable({
   );
 }
 
-// ✅ إصلاح: جلب داتا Classes وTeams من الـ API
+// ✅ إصلاح: جلب داتا Classes وTeams من الـ API بمرونة لأسماء المتغيرات
 export function ManagerHomeScreen() {
   const router = useRouter();
 
@@ -164,27 +163,48 @@ export function ManagerHomeScreen() {
     async function fetchData() {
       setIsLoading(true);
       try {
-        // ✅ جلب الكوتشيز عشان نربط الاسم بالـ coach_id
         const [classesRes, teamsRes, coachesRes] = await Promise.all([
           ClassesAPI.getAll().catch(() => null),
           TeamsAPI.getAll().catch(() => null),
           CoachAPI.getList().catch(() => []),
         ]);
 
-        // بنبني map من coach_id → اسم المدرب
-        const coachList = Array.isArray(coachesRes) ? coachesRes : coachesRes?.coaches ?? [];
-        const coachMap: Record<number, string> = {};
+        // 1. استخراج لستة المدربين بأكثر من احتمال لهيكل الداتا (عشان لو الباك إند مرجعها جوا data أو users)
+        const rawCoaches = coachesRes?.data?.users || coachesRes?.data || coachesRes?.users || coachesRes?.coaches || coachesRes;
+        const coachList = Array.isArray(rawCoaches) ? rawCoaches : [];
+        
+        const coachMap: Record<string | number, string> = {};
         coachList.forEach((c: any) => {
-          coachMap[c.id] = [c.first_name, c.last_name].filter(Boolean).join(" ");
+          const id = c.id || c._id;
+          if (id) {
+            coachMap[id] = [c.first_name, c.last_name].filter(Boolean).join(" ") || c.name || "Unknown Coach";
+          }
         });
 
-        // إضافة coach_name للكلاسيز
-        const classes = (Array.isArray(classesRes) ? classesRes : classesRes?.data ?? classesRes?.classes ?? [])
-          .map((c: any) => ({ ...c, coach_name: coachMap[c.coach_id] || c.coach_id }));
+        // 2. دمج اسم المدرب مع الكلاسات (مع دعم كذا شكل لـ coach_id)
+        const rawClasses = Array.isArray(classesRes) ? classesRes : classesRes?.data?.classes || classesRes?.data || classesRes?.classes || [];
+        const classes = rawClasses.map((c: any) => {
+          // محاولة استخراج الـ ID بأي اسم محتمل
+          const coachId = c.coach_id || c.coachId || c.coach?.id || c.coach?._id;
+          
+          // لو الباك إند باعت اسم الكوتش جاهز جوه object، خده.. لو لأ هاته من الـ Map
+          const nestedName = c.coach?.first_name ? `${c.coach.first_name} ${c.coach.last_name || ''}`.trim() : c.coach?.name;
+          
+          // لو مفيش اسم بس فيه ID، اعرض الـ ID مؤقتاً عشان نعرف المشكلة منين
+          const finalCoachName = nestedName || (coachId ? coachMap[coachId] : null) || (coachId ? `Coach ID: ${coachId}` : "-");
+          
+          return { ...c, coach_name: finalCoachName };
+        });
 
-        // إضافة coach_name للتيمز
-        const teams = (Array.isArray(teamsRes) ? teamsRes : teamsRes?.data ?? teamsRes?.teams ?? [])
-          .map((t: any) => ({ ...t, coach_name: coachMap[t.coach_id] || t.coach_id }));
+        // 3. دمج اسم المدرب مع الفرق بنفس الطريقة
+        const rawTeams = Array.isArray(teamsRes) ? teamsRes : teamsRes?.data?.teams || teamsRes?.data || teamsRes?.teams || [];
+        const teams = rawTeams.map((t: any) => {
+          const coachId = t.coach_id || t.coachId || t.coach?.id || t.coach?._id;
+          const nestedName = t.coach?.first_name ? `${t.coach.first_name} ${t.coach.last_name || ''}`.trim() : t.coach?.name;
+          const finalCoachName = nestedName || (coachId ? coachMap[coachId] : null) || (coachId ? `Coach ID: ${coachId}` : "-");
+          
+          return { ...t, coach_name: finalCoachName };
+        });
 
         setClassesData(classes);
         setTeamsData(teams);
@@ -228,7 +248,6 @@ export function ManagerHomeScreen() {
   );
 }
 
-// ✅ إصلاح: استبدال onBack/onDone بـ useRouter
 export function TeamsTableScreen() {
   const router = useRouter();
 
@@ -271,7 +290,6 @@ export function TeamsTableScreen() {
             </tbody>
           </table>
         </div>
-        {/* ✅ إصلاح: Done يرجع لـ /manager/home */}
         <button
           type="button"
           onClick={() => router.push("/manager/home")}
@@ -284,7 +302,6 @@ export function TeamsTableScreen() {
   );
 }
 
-// ✅ جديد: شاشة تعديل الكلاسيز (مماثلة للتيمز)
 export function ClassesTableScreen() {
   const router = useRouter();
 
