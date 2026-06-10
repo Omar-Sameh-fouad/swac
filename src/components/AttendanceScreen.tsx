@@ -142,12 +142,9 @@ export function AttendanceScreen() {
           return [];
         }
 
-        // ✅ استخراج الاسم من أي شكل للـ user object
+        // ✅ الـ API بيرجع { id, name } مباشرة
         function extractName(u: any, fallbackPrefix: string): string {
-          const full =
-            [u.first_name, u.last_name].filter(Boolean).join(" ") ||
-            u.name || u.full_name || u.username || u.email || "";
-          return full.trim() || `${fallbackPrefix} #${u.id}`;
+          return u.name?.trim() || `${fallbackPrefix} #${u.id}`;
         }
 
         const swimmers: UserOption[] = extractList(swimmersRes).map((s: any) => ({
