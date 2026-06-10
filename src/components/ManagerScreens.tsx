@@ -336,9 +336,9 @@ export function TeamsTableScreen() {
     <main className="min-h-screen bg-[#fffef8] px-[5vw] py-[6vh] text-black max-md:px-[4vw]">
       <BackButton onClick={() => router.push("/manager/home")} />
       
-      {/* Custom Popup */}
+      {/* ✅ Custom Popup (Top placement) */}
       {popup.show && (
-        <div className={`fixed bottom-10 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full px-6 py-3 text-sm font-bold text-white shadow-xl transition-all duration-300 ease-out animate-in slide-in-from-bottom-5 ${popup.type === "success" ? "bg-[#108bad]" : "bg-red-600"}`}>
+        <div className={`fixed top-[5vh] left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full px-6 py-3 text-sm font-bold text-white shadow-xl transition-all duration-300 ease-out animate-in slide-in-from-top-5 ${popup.type === "success" ? "bg-[#108bad]" : "bg-red-600"}`}>
           {popup.type === "success" ? (
              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
           ) : (
@@ -523,9 +523,9 @@ export function ClassesTableScreen() {
     <main className="min-h-screen bg-[#fffef8] px-[5vw] py-[6vh] text-black max-md:px-[4vw]">
       <BackButton onClick={() => router.push("/manager/home")} />
 
-      {/* Custom Popup */}
+      {/* ✅ Custom Popup (Top placement) */}
       {popup.show && (
-        <div className={`fixed bottom-10 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full px-6 py-3 text-sm font-bold text-white shadow-xl transition-all duration-300 ease-out animate-in slide-in-from-bottom-5 ${popup.type === "success" ? "bg-[#108bad]" : "bg-red-600"}`}>
+        <div className={`fixed top-[5vh] left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full px-6 py-3 text-sm font-bold text-white shadow-xl transition-all duration-300 ease-out animate-in slide-in-from-top-5 ${popup.type === "success" ? "bg-[#108bad]" : "bg-red-600"}`}>
           {popup.type === "success" ? (
              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
           ) : (
