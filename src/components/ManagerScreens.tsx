@@ -48,8 +48,7 @@ function LiveScheduleTable({
   });
 
   const maxRows = Math.max(1, ...colDays.map((d) => cellMap[d]?.length ?? 0));
-  // بنضيف صفوف فاضية عشان الجدول ياخد ارتفاع minimum كويس
-  const displayRows = Math.max(maxRows, 3);
+  const displayRows = maxRows;
 
   return (
     <section>
@@ -74,7 +73,7 @@ function LiveScheduleTable({
             ) : (
               Array.from({ length: displayRows }).map((_, rowIndex) => (
                 <tr key={rowIndex}>
-                  <td className="h-[clamp(40px,5vh,55px)] border border-[#9d9d9d] bg-white/20 text-[clamp(5px,0.65vw,9px)] font-bold text-black/40">{rowIndex + 1}</td>
+                  <td className="h-[clamp(40px,5vh,55px)] border border-[#9d9d9d] bg-white/20" />
                   {colDays.map((day) => {
                     const cell = cellMap[day]?.[rowIndex];
                     return (
