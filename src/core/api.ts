@@ -164,3 +164,9 @@ export const CoachAPI = {
   getAvailability: (coachId?: number) => fetchApi(`/coach/availability${coachId ? `?coach_id=${coachId}` : ""}`, { method: "GET" }),
   setup: (data: any) => fetchApi("/coach/setup", { method: "POST", body: JSON.stringify(data) }),
 };
+
+// ✅ Manager Only — GET /users/list?type=swimmer|coach
+export const UsersAPI = {
+  getSwimmers: () => fetchApi("/users/list?type=swimmer", { method: "GET" }),
+  getCoaches:  () => fetchApi("/users/list?type=coach",   { method: "GET" }),
+};

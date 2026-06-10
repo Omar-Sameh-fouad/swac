@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AttendanceAPI, getSessionUser } from "@/core/api";
+import { AttendanceAPI, getSessionUser, UsersAPI } from "@/core/api";
 
 type AttendanceRow = {
   id: number;
@@ -98,6 +98,8 @@ function getNow() {
   return { day, month, time, displayTime, fullDate: `${day} ${month} ${now.getFullYear()}` };
 }
 
+type UserOption = { id: number; name: string; type: "swimmer" | "coach" };
+
 export function AttendanceScreen() {
   const router = useRouter();
   const [rows, setRows] = useState<AttendanceRow[]>([]);
@@ -107,73 +109,100 @@ export function AttendanceScreen() {
 
   const sessionUser = getSessionUser();
   const userId = sessionUser?.id;
+  const isManager = sessionUser?.role === "manager";
+
+  // ✅ للمدير: قائمة المستخدمين + الاختيار
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number | "">("");
+  const [selectedUserType, setSelectedUserType] = useState<"swimmer" | "coach" | "">("");
 
   const attendedDaysSet = new Set(rows.filter((r) => r.state === "Attend").map((r) => Number(r.day)));
   const totalDays = rows.length;
   const attendedCount = rows.filter((r) => r.state === "Attend").length;
   const attendPercent = totalDays > 0 ? Math.round((attendedCount / totalDays) * 100) : 0;
 
+  // ✅ جلب قائمة المستخدمين للمدير فقط
+  useEffect(() => {
+    if (!isManager) return;
+    async function fetchUsers() {
+      try {
+        const [swimmersRes, coachesRes] = await Promise.all([
+          UsersAPI.getSwimmers().catch(() => []),
+          UsersAPI.getCoaches().catch(() => []),
+        ]);
+        const swimmers: UserOption[] = (Array.isArray(swimmersRes) ? swimmersRes : swimmersRes?.swimmers ?? swimmersRes?.data ?? [])
+          .map((s: any) => ({ id: s.id, name: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || `Swimmer #${s.id}`, type: "swimmer" as const }));
+        const coaches: UserOption[] = (Array.isArray(coachesRes) ? coachesRes : coachesRes?.coaches ?? coachesRes?.data ?? [])
+          .map((c: any) => ({ id: c.id, name: `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() || `Coach #${c.id}`, type: "coach" as const }));
+        setUserOptions([...swimmers, ...coaches]);
+      } catch { /* صامت */ }
+    }
+    fetchUsers();
+  }, [isManager]);
+
+  // ✅ لما المدير يغير اختياره، نجيب attendance الخاص بيه
   useEffect(() => {
     async function fetchAttendance() {
       try {
-        const data = await AttendanceAPI.get();
-        if (Array.isArray(data)) {
-          const mapped: AttendanceRow[] = data.map((item: any, index: number) => {
-            const date = new Date(item.date || item.created_at || Date.now());
-            return {
-              id: item.id || index + 1,
-              day: date.getDate().toString(),
-              month: date.toLocaleString("en-US", { month: "short" }),
-              state: item.status === "present" || item.state === "Attend" ? "Attend" : "Absent",
-            };
-          });
-          setRows(mapped);
-        } else if (data?.data && Array.isArray(data.data)) {
-           const mapped: AttendanceRow[] = data.data.map((item: any, index: number) => {
-            const date = new Date(item.date || item.created_at || Date.now());
-            return {
-              id: item.id || index + 1,
-              day: date.getDate().toString(),
-              month: date.toLocaleString("en-US", { month: "short" }),
-              state: item.status === "present" ? "Attend" : "Absent",
-            };
-          });
-          setRows(mapped);
-        }
-      } catch {
-        // خطأ صامت
-      }
+        // المدير + اختار مستخدم → فلتر بـ user_id & user_type
+        const params: Record<string, any> =
+          isManager && selectedUserId && selectedUserType
+            ? { user_id: selectedUserId, user_type: selectedUserType }
+            : {};
+
+        const data = await AttendanceAPI.get(params);
+        const list = Array.isArray(data) ? data : (data?.data ?? []);
+        const mapped: AttendanceRow[] = list.map((item: any, index: number) => {
+          const date = new Date(item.date || item.created_at || Date.now());
+          return {
+            id: item.id || index + 1,
+            day: date.getDate().toString(),
+            month: date.toLocaleString("en-US", { month: "short" }),
+            state: item.status === "present" || item.state === "Attend" ? "Attend" : "Absent",
+          };
+        });
+        setRows(mapped);
+      } catch { /* صامت */ }
     }
     fetchAttendance();
-  }, []);
+  }, [isManager, selectedUserId, selectedUserType]);
 
   async function addAttendance() {
     setIsLogging(true);
     setErrorMsg("");
     try {
+      // ✅ المدير: لازم يختار مستخدم
+      if (isManager) {
+        if (!selectedUserId || !selectedUserType) {
+          setErrorMsg("Please select a user first.");
+          setIsLogging(false);
+          return;
+        }
+        const payload = {
+          user_id: selectedUserId,
+          user_type: selectedUserType,
+          status: "present",
+          date: new Date().toISOString().split("T")[0],
+          time: now.time,
+        };
+        const response = await AttendanceAPI.log(payload);
+        setRows((cur) => [...cur, { id: response?.attendance_id || cur.length + 1, day: now.day, month: now.month, state: "Attend" }]);
+        return;
+      }
+
+      // ✅ Swimmer / Coach: يسجل لنفسه
       if (!userId) {
         setErrorMsg("User not found. Please log out and log in again.");
         setIsLogging(false);
         return;
       }
-
       const payload = {
         status: "present",
         date: new Date().toISOString().split("T")[0],
         time: now.time,
       };
-      
       const response = await AttendanceAPI.log(payload);
-
-      setRows((currentRows) => [
-        ...currentRows,
-        {
-          id: response?.attendance_id || currentRows.length + 1,
-          day: now.day,
-          month: now.month,
-          state: "Attend",
-        },
-      ]);
+      setRows((cur) => [...cur, { id: response?.attendance_id || cur.length + 1, day: now.day, month: now.month, state: "Attend" }]);
     } catch (error: any) {
       setErrorMsg(error.message || "Failed to log attendance.");
     } finally {
@@ -208,6 +237,38 @@ export function AttendanceScreen() {
               </div>
 
               <div className="flex flex-col items-center md:absolute md:left-[263px] md:top-[86px]">
+                {/* ✅ Dropdown للمدير فقط */}
+                {isManager && (
+                  <div className="mb-4 w-full max-w-[260px]">
+                    <label className="mb-1 block text-center text-[13px] font-black">Select User</label>
+                    <select
+                      value={selectedUserId === "" ? "" : `${selectedUserType}:${selectedUserId}`}
+                      onChange={(e) => {
+                        if (!e.target.value) { setSelectedUserId(""); setSelectedUserType(""); return; }
+                        const [type, id] = e.target.value.split(":");
+                        setSelectedUserType(type as "swimmer" | "coach");
+                        setSelectedUserId(Number(id));
+                      }}
+                      className="h-10 w-full rounded-full border border-black/20 bg-white px-4 text-[13px] font-bold outline-none focus:border-[#168dab] focus:ring-2 focus:ring-[#168dab]/20"
+                    >
+                      <option value="">-- Select swimmer / coach --</option>
+                      {userOptions.filter((u) => u.type === "swimmer").length > 0 && (
+                        <optgroup label="Swimmers">
+                          {userOptions.filter((u) => u.type === "swimmer").map((u) => (
+                            <option key={`swimmer:${u.id}`} value={`swimmer:${u.id}`}>{u.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {userOptions.filter((u) => u.type === "coach").length > 0 && (
+                        <optgroup label="Coaches">
+                          {userOptions.filter((u) => u.type === "coach").map((u) => (
+                            <option key={`coach:${u.id}`} value={`coach:${u.id}`}>{u.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                  </div>
+                )}
                 <button
                   aria-label="Press to attend"
                   disabled={isLogging}
