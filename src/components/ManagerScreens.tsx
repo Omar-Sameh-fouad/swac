@@ -98,7 +98,7 @@ function LiveScheduleTable({
                         ) : null}
                       </td>
                     );
-
+                  })}
                 </tr>
               );
               })
