@@ -236,9 +236,9 @@ export function ManagerHomeScreen() {
 export function TeamsTableScreen() {
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
-  const [coaches, setCoaches] = useState<any[]>([]); // عشان نربط الاسم بالـ ID
+  const [coaches, setCoaches] = useState<any[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
-  const [draggedItem, setDraggedItem] = useState<any>(null); // للـ Drag & Drop
+  const [draggedItem, setDraggedItem] = useState<any>(null); 
 
   useEffect(() => {
     async function fetchData() {
@@ -250,7 +250,7 @@ export function TeamsTableScreen() {
         const rawTeams = Array.isArray(teamsRes) ? teamsRes : teamsRes?.data?.teams || teamsRes?.data || [];
         setData(rawTeams);
 
-        const rawCoaches = Array.isArray(coachesRes?.data?.users) ? coachesRes.data.users : coachesRes?.data || coachesRes || [];
+        const rawCoaches = coachesRes?.data?.users || coachesRes?.data || coachesRes?.users || coachesRes?.coaches || coachesRes;
         setCoaches(Array.isArray(rawCoaches) ? rawCoaches : []);
       } catch (err) {
         console.error(err);
@@ -265,7 +265,6 @@ export function TeamsTableScreen() {
     setData((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   };
 
-  // ✅ هاندلر الدروب (تغيير اليوم أوتوماتيك)
   const handleDrop = (e: React.DragEvent, targetDayShort: string) => {
     e.preventDefault();
     if (!draggedItem) return;
@@ -277,35 +276,48 @@ export function TeamsTableScreen() {
 
   const handleSave = async (item: any) => {
     try {
-      let finalCoachId = item.coach_id;
+      const targetId = item.id || item._id;
+      if (!targetId) return alert("Error: Missing Team ID");
 
-      // ✅ حل مشكلة السيف: لو الاسم اتغير، هنجيب الـ ID بتاعه من لستة الكباتن
+      let finalCoachId = item.coach_id || item.coachId || item.coach?.id || item.coach?._id;
+
       if (item.coach_name) {
+        const searchName = item.coach_name.toLowerCase().trim();
         const matchedCoach = coaches.find((c: any) => {
-          const cName = `${c.first_name} ${c.last_name || ''}`.trim().toLowerCase();
-          return cName === item.coach_name.toLowerCase().trim();
+          const cName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+          const fallbackName = (c.name || '').trim().toLowerCase();
+          return cName === searchName || fallbackName === searchName;
         });
+
         if (matchedCoach) {
           finalCoachId = matchedCoach.id || matchedCoach._id;
         }
       }
 
-      // بنجهز الداتا اللي هتروح للباك إند (لازم Day كامل و coach_id)
+      // ✅ رسالة التنبيه القوية لو الكابتن مش موجود
+      if (!finalCoachId) {
+        alert(`⚠️ Failed to Save!\nWe couldn't find a Coach ID for "${item.coach_name}". Please make sure the name is spelled exactly as it is in the system.`);
+        return;
+      }
+
       const payload = {
         team_name: item.team_name,
         time: item.time,
         day: fullDayMap[item.day] || item.day,
-        coach_id: finalCoachId
+        coach_id: Number(finalCoachId) // ضمان إنه يتبعت كرقم
       };
 
+      console.log("Sending Payload:", payload); // هتساعدنا جداً لو حصلت مشكلة
+
       if (TeamsAPI.update) {
-        await TeamsAPI.update(item.id, payload);
+        await TeamsAPI.update(targetId, payload);
         alert("Team updated successfully!");
       } else {
         alert("TeamsAPI.update is not defined yet.");
       }
-    } catch (err) {
-      alert("Failed to update team. Make sure coach name is correct.");
+    } catch (err: any) {
+      console.error(err);
+      alert("Failed to update team. Open browser console (F12) for details.");
     }
   };
 
@@ -353,7 +365,7 @@ export function TeamsTableScreen() {
                         <td 
                           key={`${day}-${rowIndex}`} 
                           className="border border-[#9d9d9d] bg-transparent p-1 align-top transition-colors hover:bg-gray-50"
-                          onDragOver={(e) => e.preventDefault()} // لازم عشان يسمح بالدروب
+                          onDragOver={(e) => e.preventDefault()} 
                           onDrop={(e) => handleDrop(e, day)}
                         >
                           {item ? (
@@ -368,7 +380,7 @@ export function TeamsTableScreen() {
                               <button onClick={() => handleSave(item)} className="mt-1 rounded bg-[#108bad] py-0.5 text-[8px] text-white hover:bg-[#0d7c9a]">Save</button>
                             </div>
                           ) : (
-                            <div className="h-full min-h-[60px] w-full"></div> // مساحة فاضية عشان تقدر ترمي فيها
+                            <div className="h-full min-h-[60px] w-full"></div> 
                           )}
                         </td>
                       );
@@ -391,9 +403,9 @@ export function TeamsTableScreen() {
 export function ClassesTableScreen() {
   const router = useRouter();
   const [data, setData] = useState<any[]>([]);
-  const [coaches, setCoaches] = useState<any[]>([]); // عشان نربط الاسم بالـ ID
+  const [coaches, setCoaches] = useState<any[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
-  const [draggedItem, setDraggedItem] = useState<any>(null); // للـ Drag & Drop
+  const [draggedItem, setDraggedItem] = useState<any>(null); 
 
   useEffect(() => {
     async function fetchData() {
@@ -405,7 +417,7 @@ export function ClassesTableScreen() {
         const rawClasses = Array.isArray(classesRes) ? classesRes : classesRes?.data?.classes || classesRes?.data || [];
         setData(rawClasses);
 
-        const rawCoaches = Array.isArray(coachesRes?.data?.users) ? coachesRes.data.users : coachesRes?.data || coachesRes || [];
+        const rawCoaches = coachesRes?.data?.users || coachesRes?.data || coachesRes?.users || coachesRes?.coaches || coachesRes;
         setCoaches(Array.isArray(rawCoaches) ? rawCoaches : []);
       } catch (err) {
         console.error(err);
@@ -420,7 +432,6 @@ export function ClassesTableScreen() {
     setData((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   };
 
-  // ✅ هاندلر الدروب
   const handleDrop = (e: React.DragEvent, targetDayShort: string) => {
     e.preventDefault();
     if (!draggedItem) return;
@@ -432,35 +443,48 @@ export function ClassesTableScreen() {
 
   const handleSave = async (item: any) => {
     try {
-      let finalCoachId = item.coach_id;
+      const targetId = item.id || item._id;
+      if (!targetId) return alert("Error: Missing Class ID");
 
-      // ✅ حل مشكلة السيف: ترجمة الاسم لـ ID
+      let finalCoachId = item.coach_id || item.coachId || item.coach?.id || item.coach?._id;
+
       if (item.coach_name) {
+        const searchName = item.coach_name.toLowerCase().trim();
         const matchedCoach = coaches.find((c: any) => {
-          const cName = `${c.first_name} ${c.last_name || ''}`.trim().toLowerCase();
-          return cName === item.coach_name.toLowerCase().trim();
+          const cName = `${c.first_name || ''} ${c.last_name || ''}`.trim().toLowerCase();
+          const fallbackName = (c.name || '').trim().toLowerCase();
+          return cName === searchName || fallbackName === searchName;
         });
+
         if (matchedCoach) {
           finalCoachId = matchedCoach.id || matchedCoach._id;
         }
       }
 
-      // بنجهز الداتا للباك إند
+      // ✅ رسالة التنبيه القوية لو الكابتن مش موجود
+      if (!finalCoachId) {
+        alert(`⚠️ Failed to Save!\nWe couldn't find a Coach ID for "${item.coach_name}". Please make sure the name is spelled exactly as it is in the system.`);
+        return;
+      }
+
       const payload = {
         class_level: item.class_level,
         time: item.time,
         day: fullDayMap[item.day] || item.day,
-        coach_id: finalCoachId
+        coach_id: Number(finalCoachId) // ضمان إنه يتبعت كرقم
       };
 
+      console.log("Sending Payload:", payload); // هتساعدنا جداً لو حصلت مشكلة
+
       if (ClassesAPI.update) {
-        await ClassesAPI.update(item.id, payload);
+        await ClassesAPI.update(targetId, payload);
         alert("Class updated successfully!");
       } else {
         alert("ClassesAPI.update is not defined yet.");
       }
-    } catch (err) {
-      alert("Failed to update class. Make sure coach name is correct.");
+    } catch (err: any) {
+      console.error(err);
+      alert("Failed to update class. Open browser console (F12) for details.");
     }
   };
 
@@ -508,7 +532,7 @@ export function ClassesTableScreen() {
                         <td 
                           key={`${day}-${rowIndex}`} 
                           className="border border-[#9d9d9d] bg-transparent p-1 align-top transition-colors hover:bg-gray-50"
-                          onDragOver={(e) => e.preventDefault()} // لازم للدروب
+                          onDragOver={(e) => e.preventDefault()} 
                           onDrop={(e) => handleDrop(e, day)}
                         >
                           {item ? (
@@ -523,7 +547,7 @@ export function ClassesTableScreen() {
                               <button onClick={() => handleSave(item)} className="mt-1 rounded bg-[#108bad] py-0.5 text-[8px] text-white hover:bg-[#0d7c9a]">Save</button>
                             </div>
                           ) : (
-                            <div className="h-full min-h-[60px] w-full"></div> // مساحة فاضية ترمي فيها
+                            <div className="h-full min-h-[60px] w-full"></div> 
                           )}
                         </td>
                       );
